@@ -36,7 +36,7 @@ function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt
 
 function loginScreen(){
  return `<div class="login-page"><div class="login-card">
- <img class="login-logo" src="assets/logo-formacao-gdr.png" alt="Formação GDR Faro do Alentejo">
+ <img class="login-logo" src="logo-formacao-gdr.png" alt="Formação GDR Faro do Alentejo">
  <h1>GDR Formação 360</h1><p class="subtitle">Área reservada à equipa técnica</p>
  <div id="loginError" class="login-error">Utilizador ou PIN incorreto.</div>
  <div class="field"><label>Utilizador</label><input id="loginUser" autocomplete="username" placeholder="Utilizador"></div>
@@ -54,7 +54,7 @@ function login(){
 function logout(){saveSession(null);view='home';trainingDraft=null;render()}
 function nav(){return `<nav class="nav">${[['home','⌂','Início'],['training','⚽','Treino'],['athletes','👥','Atletas'],['callup','📋','Convocar'],['dashboard','📊','Dashboard']].map(([v,i,t])=>`<button class="${view===v?'active':''}" onclick="go('${v}')"><span class="ico">${i}</span>${t}</button>`).join('')}</nav>`}
 function shell(body){const u=currentUser();return `<div class="app"><header class="topbar"><div class="brand">
-<img class="brand-logo" src="assets/logo-formacao-gdr.png" alt="GDR Formação">
+<img class="brand-logo" src="logo-formacao-gdr.png" alt="GDR Formação">
 <div class="brand-copy"><h1>${C.APP_NAME}</h1><small>${esc(u?.name||'')}</small></div>
 <div class="userbox"><span class="role-badge">${isAdmin()?'Administrador':'Treinador'}</span><button class="logout" onclick="logout()">Sair</button></div>
 </div></header><main class="content">${body}</main>${nav()}</div>`}
