@@ -1,40 +1,43 @@
-# GDR Formação 360
+# GDR Formação 360 — v2
 
 PWA mobile-first para gestão dos escalões de formação do GDR Faro do Alentejo.
 
-## Funcionalidades desta versão
+## Alterações desta versão
 
-- Gestão de atletas por escalão: Traquinas, Benjamins e Traquinas/Benjamins
-- Registo de treinos
-- Presenças: Presente, Falta e Justificada
-- Avaliação 1–5 de Atitude, Empenho e Comportamento
-- Observações por atleta/treino
-- Dashboard com assiduidade e índice de treino
-- Sugestão de convocatória com base nos dados registados
-- PWA instalável no telemóvel
-- Modo demo/local via `localStorage`
-- Backend Google Apps Script preparado para Google Sheets
+- Logótipo oficial da Formação GDR integrado no login e cabeçalho.
+- Login obrigatório por **Utilizador + PIN**.
+- Perfis:
+  - **Administrador** — acesso total.
+  - **Treinador** — treinos, presenças, avaliações, consulta de atletas, dashboard e convocatórias.
+- Apenas o **Administrador** pode:
+  - adicionar atletas;
+  - editar atletas;
+  - eliminar/desativar atletas;
+  - criar/editar/desativar utilizadores.
+- O Treinador vê a lista de atletas mas não tem botões de gestão.
+- Área de gestão de utilizadores exclusiva do Administrador.
+- PWA com ícones gerados a partir do logótipo oficial.
+- Backend `backend/Code.gs` já prepara folhas `USERS`, `ATHLETES`, `TRAININGS`, `RECORDS`, `GAMES` e `CALLUPS`.
+- O backend já inclui base de autenticação com PIN guardado em SHA-256.
 
-## Publicar no GitHub Pages
+## Credenciais de demonstração
 
-1. Carregar todos os ficheiros desta pasta para a raiz do repositório.
-2. No GitHub: Settings → Pages.
-3. Em Build and deployment escolher `Deploy from a branch`.
-4. Branch: `main` / pasta `/root`.
-5. Guardar.
+Enquanto `DEMO_MODE: true` em `config.js`:
 
-## Ligar ao Google Sheets
+- Administrador: `admin` / `1234`
+- Treinador: `treinador` / `2468`
 
-1. Criar uma Google Sheet para a app.
-2. Extensions → Apps Script.
-3. Copiar `backend/Code.gs` para o editor.
-4. Executar manualmente a função `setup()` uma vez e autorizar.
-5. Deploy → New deployment → Web app.
-6. Execute as: Me. Access: Anyone with the link (ou a política adequada ao clube).
-7. Copiar o URL terminado em `/exec`.
-8. Colocar esse URL em `config.js` no campo `API_URL`.
-9. Mudar `DEMO_MODE` para `false` quando a integração do frontend estiver ativada.
+Estas credenciais são apenas para testar a interface. Na ligação definitiva ao Google Apps Script, os utilizadores passam a estar na Google Sheet.
 
-## Nota
+## Atualizar no GitHub
 
-Nesta primeira versão o frontend funciona totalmente em modo local para poder ser testado imediatamente. A camada Apps Script está criada como base do backend e será ligada ao frontend na versão seguinte.
+Substituir os ficheiros atuais do repositório pelos ficheiros desta versão e carregar também as novas pastas:
+
+- `assets/`
+- `backend/`
+
+O `index.html` continua na raiz do repositório.
+
+## Nota de segurança
+
+A versão publicada no GitHub ainda funciona em modo local/demo. A separação de permissões já está aplicada na interface, mas a segurança definitiva será feita no backend Apps Script, para que um utilizador não possa contornar permissões alterando JavaScript no browser.
