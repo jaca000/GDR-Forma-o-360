@@ -7,3 +7,5 @@
 /* Admin */
 .admin-strip{display:flex;align-items:center;gap:8px;background:#18191c;color:#fff;border-radius:16px;padding:12px 14px;margin-bottom:14px}.admin-strip strong{flex:1}.danger-zone{border-color:#efc4c4}.user-row{display:flex;align-items:center;gap:10px}.user-icon{width:38px;height:38px;border-radius:12px;background:#f1f2f4;display:grid;place-items:center;font-weight:900}
 @media(min-width:760px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.content{padding:24px}.nav{left:50%;transform:translateX(-50%);max-width:720px;border:1px solid var(--line);border-radius:22px 22px 0 0}.form-row.three{grid-template-columns:repeat(3,1fr)}}
+
+.express-tip{background:#fff8e6;border:1px solid #f2d99d;border-radius:13px;padding:11px 12px;font-size:12px;margin-bottom:12px;color:#72520b}.quick-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0 12px}.quick-presets button{border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 3px;font-size:18px}.quick-presets button span{display:block;font-size:9px;font-weight:800;margin-top:2px;color:var(--muted)}
