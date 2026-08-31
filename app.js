@@ -738,19 +738,55 @@ function feeFor(aid, month, season) {
     (f) => f.athleteId === aid && f.month === month && f.season === season,
   );
 }
+function feeStatus(f, month) {
+  if (
+    f?.status === "Pago" ||
+    f?.status === "Isento" ||
+    f?.status === "Em falta"
+  )
+    return f.status;
+  const today = new Date(),
+    current = today.toISOString().slice(0, 7);
+  return month < current || (month === current && today.getDate() > 8)
+    ? "Em falta"
+    : "Pendente";
+}
 function fees() {
-  const month = $("feeMonth")?.value || new Date().toISOString().slice(0, 7),
+  const startMonth = state.settings?.feeStartMonth || "2026-10",
+    month =
+      $("feeMonth")?.value ||
+      (new Date().toISOString().slice(0, 7) < startMonth
+        ? startMonth
+        : new Date().toISOString().slice(0, 7)),
     season = $("feeSeason")?.value || seasonNow(),
     filter = $("feeFilter")?.value || "Todos";
   const rows = sortName(state.athletes.filter((a) => a.active))
     .map((a) => ({ a, f: feeFor(a.id, month, season) }))
-    .filter(
-      (x) => filter === "Todos" || (x.f?.status || "Pendente") === filter,
-    );
+    .filter((x) => filter === "Todos" || feeStatus(x.f, month) === filter);
   const paid = rows.filter((x) => x.f?.status === "Pago"),
-    missing = rows.filter((x) => (x.f?.status || "Pendente") === "Em falta"),
+    missing = rows.filter((x) => feeStatus(x.f, month) === "Em falta"),
     exempt = rows.filter((x) => x.f?.status === "Isento");
-  return `<div class="section"><div><h3>Mensalidades</h3><div class="muted">Valor fixo: 10€ / mês</div></div>${!admin() ? '<span class="pill">Só leitura</span>' : ""}</div><div class="card fee-filters"><div class="form2"><div class="field"><label>Época</label><input id="feeSeason" value="${season}" onchange="render()" pattern="\\d{4}/\\d{2}"></div><div class="field"><label>Mês</label><input id="feeMonth" type="month" value="${month}" onchange="render()"></div></div><div class="field"><label>Estado</label><select id="feeFilter" onchange="render()">${["Todos", "Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === filter ? "selected" : ""}>${x}</option>`).join("")}</select></div></div><div class="grid fee-kpis"><div class="card kpi"><span>Atletas</span><strong>${rows.length}</strong></div><div class="card kpi"><span>Pagos</span><strong>${paid.length}</strong></div><div class="card kpi"><span>Recebido</span><strong>${paid.length * 10}€</strong></div><div class="card kpi"><span>Por receber</span><strong>${missing.length * 10}€</strong></div></div><div class="list fees-list">${rows.map(({ a, f }) => `<div class="card fee-row">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="fee-status s-${(f?.status || "Pendente").replace(" ", "-").toLowerCase()}">${esc(f?.status || "Pendente")}</span></div><div class="muted">${f?.status === "Pago" ? `10€ · ${esc(f.method)} · ${fmt(f.paymentDate)}` : f?.status === "Isento" ? "Isento neste mês" : "10€ por regularizar"}</div></div>${f?.status === "Pago" ? `<button class="btn btn-small btn-secondary" onclick="printReceipt('${f.id}')">Recibo</button>` : ""}${admin() ? `<button class="btn btn-small btn-primary" onclick="openFee('${a.id}','${month}','${season}')">Gerir</button>` : ""}</div>`).join("") || '<div class="card empty">Sem resultados para este filtro.</div>'}</div>`;
+  return `<div class="section"><div><h3>Mensalidades</h3><div class="muted">10€ / mês · desde outubro de 2026 · pagamento entre os dias 1 e 8</div></div>${!admin() ? '<span class="pill">Só leitura</span>' : ""}</div>${admin() ? `<div class="card alert-settings"><div class="field"><label>Email para alertas de pagamentos em falta</label><div class="inline-field"><input id="feeAlertEmail" type="email" value="${esc(state.settings?.alertEmail || "")}" placeholder="nome@exemplo.pt"><button class="btn btn-primary" onclick="saveFeeSettings()">Guardar</button></div><div class="muted">Aviso no dia 6, no dia 9 e semanalmente enquanto existirem pagamentos em falta.</div></div></div>` : ""}<div class="card fee-filters"><div class="form2"><div class="field"><label>Época</label><input id="feeSeason" value="${season}" onchange="render()" pattern="\\d{4}/\\d{2}"></div><div class="field"><label>Mês</label><input id="feeMonth" type="month" min="${startMonth}" value="${month}" onchange="render()"></div></div><div class="field"><label>Estado</label><select id="feeFilter" onchange="render()">${["Todos", "Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === filter ? "selected" : ""}>${x}</option>`).join("")}</select></div></div><div class="grid fee-kpis"><div class="card kpi"><span>Atletas</span><strong>${rows.length}</strong></div><div class="card kpi"><span>Pagos</span><strong>${paid.length}</strong></div><div class="card kpi"><span>Recebido</span><strong>${paid.length * 10}€</strong></div><div class="card kpi"><span>Por receber</span><strong>${missing.length * 10}€</strong></div></div><div class="list fees-list">${
+    rows
+      .map(({ a, f }) => {
+        const status = feeStatus(f, month);
+        return `<div class="card fee-row">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="fee-status s-${status.replace(" ", "-").toLowerCase()}">${esc(status)}</span></div><div class="muted">${f?.status === "Pago" ? `10€ · ${esc(f.method)} · ${fmt(f.paymentDate)} · ${esc(f.paymentNumber || "")}` : f?.status === "Isento" ? "Isento neste mês" : status === "Em falta" ? "Prazo terminado no dia 8 · 10€ por regularizar" : "Prazo de pagamento: dias 1 a 8"}</div></div>${f?.status === "Pago" ? `<button class="btn btn-small btn-secondary" onclick="printPaymentProof('${f.id}')">Comprovativo</button>` : ""}${admin() ? `<button class="btn btn-small btn-primary" onclick="openFee('${a.id}','${month}','${season}')">Gerir</button>` : ""}</div>`;
+      })
+      .join("") ||
+    '<div class="card empty">Sem resultados para este filtro.</div>'
+  }</div>`;
+}
+async function saveFeeSettings() {
+  try {
+    await api("saveFeeSettings", {
+      alertEmail: $("feeAlertEmail").value.trim(),
+    });
+    await refresh();
+    render();
+    toast("Email de alertas guardado");
+  } catch (e) {
+    toast(e.message);
+  }
 }
 function openFee(aid, month, season) {
   if (!admin()) return;
@@ -763,7 +799,7 @@ function openFee(aid, month, season) {
     method: "Numerário",
     paymentDate: new Date().toISOString().slice(0, 10),
     note: "",
-    reference: "",
+    paymentNumber: "",
   };
   view = "feeForm";
   render();
@@ -771,7 +807,7 @@ function openFee(aid, month, season) {
 function feeForm() {
   const f = feeDraft,
     a = state.athletes.find((x) => x.id === f.athleteId);
-  return `<div class="section"><h3>Gerir mensalidade</h3></div><div class="card"><div class="athlete">${avatar(a)}<div><strong>${esc(a.name)}</strong><div class="muted">${esc(f.month)} · ${esc(f.season)} · 10€</div></div></div><div class="field"><label>Estado</label><select id="fs">${["Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === f.status ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="form2"><div class="field"><label>Método de pagamento</label><select id="fm"><option ${f.method === "Numerário" ? "selected" : ""}>Numerário</option><option ${f.method === "MB Way" ? "selected" : ""}>MB Way</option></select></div><div class="field"><label>Data de pagamento</label><input id="fd" type="date" value="${esc(f.paymentDate || "")}"></div></div><div class="field"><label>Referência / assinatura</label><input id="fr" value="${esc(f.reference || "")}" placeholder="Ex.: Recibo 2026-001"></div><div class="field"><label>Observação</label><textarea id="fn">${esc(f.note || "")}</textarea></div><button class="btn btn-primary btn-block" onclick="saveFee()">Guardar mensalidade</button></div>`;
+  return `<div class="section"><h3>Gerir mensalidade</h3></div><div class="card"><div class="athlete">${avatar(a)}<div><strong>${esc(a.name)}</strong><div class="muted">${esc(f.month)} · ${esc(f.season)} · 10€ · prazo dias 1 a 8</div></div></div><div class="field"><label>Estado</label><select id="fs">${["Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === f.status ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="form2"><div class="field"><label>Método de pagamento</label><select id="fm"><option ${f.method === "Numerário" ? "selected" : ""}>Numerário</option><option ${f.method === "MB Way" ? "selected" : ""}>MB Way</option></select></div><div class="field"><label>Data de pagamento</label><input id="fd" type="date" value="${esc(f.paymentDate || "")}"></div></div>${f.paymentNumber ? `<div class="admin-note"><b>Número de pagamento:</b> ${esc(f.paymentNumber)}</div>` : '<div class="admin-note">O número de pagamento é criado automaticamente quando guardares como Pago.</div>'}<div class="field"><label>Observação</label><textarea id="fn">${esc(f.note || "")}</textarea></div><button class="btn btn-primary btn-block" onclick="saveFee()">Guardar mensalidade</button></div>`;
 }
 async function saveFee() {
   try {
@@ -780,7 +816,6 @@ async function saveFee() {
       status: $("fs").value,
       method: $("fm").value,
       paymentDate: $("fd").value,
-      reference: $("fr").value.trim(),
       note: $("fn").value.trim(),
       amount: 10,
     };
@@ -794,20 +829,18 @@ async function saveFee() {
     toast(e.message);
   }
 }
-function printReceipt(id) {
+function printPaymentProof(id) {
   const f = state.monthlyFees.find((x) => x.id === id),
     a = state.athletes.find((x) => x.id === f?.athleteId);
   if (!f || !a) return;
-  const ref =
-      f.reference ||
-      `GDR-${f.month.replace("-", "")}-${a.id.slice(-5).toUpperCase()}`,
-    body = `<div class="receipt"><h2>Comprovativo de pagamento</h2><p>Declara-se que foi recebido de <b>${esc(a.name)}</b> o valor de <b>10,00 €</b>, referente à mensalidade de <b>${new Date(f.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</b>, época <b>${esc(f.season)}</b>.</p><table class="report-table"><tr><th>Atleta</th><td>${esc(a.name)}</td></tr><tr><th>Escalão</th><td>${esc(a.group)}</td></tr><tr><th>Valor</th><td>10,00 €</td></tr><tr><th>Método</th><td>${esc(f.method)}</td></tr><tr><th>Data</th><td>${fmt(f.paymentDate)}</td></tr><tr><th>Referência</th><td>${esc(ref)}</td></tr></table><div class="signature">Assinatura / validação GDR<br><br>________________________________</div><p class="meta">Documento emitido pela GDR Formação 360.</p></div>`;
+  const number = f.paymentNumber || f.reference,
+    body = `<div class="receipt"><h2>Comprovativo interno de pagamento</h2><p>Confirma-se o registo interno do pagamento de <b>10,00 €</b> por <b>${esc(a.name)}</b>, referente à mensalidade de <b>${new Date(f.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</b>, época <b>${esc(f.season)}</b>.</p><table class="report-table"><tr><th>Número de pagamento</th><td>${esc(number)}</td></tr><tr><th>Atleta</th><td>${esc(a.name)}</td></tr><tr><th>Escalão</th><td>${esc(a.group)}</td></tr><tr><th>Valor</th><td>10,00 €</td></tr><tr><th>Método</th><td>${esc(f.method)}</td></tr><tr><th>Data</th><td>${fmt(f.paymentDate)}</td></tr></table><div class="signature">Validação GDR<br><br>________________________________</div><p class="meta"><b>Documento interno, sem valor fiscal.</b> Não constitui fatura nem documento fiscal.</p></div>`;
   const w = window.open("", "_blank");
   w.document.write(
     printDoc(
-      "Recibo de mensalidade",
+      "Comprovativo interno de pagamento",
       "GDR Faro do Alentejo",
-      `Referência ${esc(ref)}`,
+      `Pagamento ${esc(number)}`,
       "",
       body,
     ),

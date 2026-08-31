@@ -1,11 +1,15 @@
-# GDR Formação 360 — v9
+# GDR Formação 360 — v9.1
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
 
-- Mensalidades de 10€/mês: Pago, Em falta, Isento ou Pendente; Numerário/MB Way; data, observação, referência, totais e filtros.
-- Recibo GDR imprimível ou guardável em PDF. Treinadores consultam; só o Admin altera, com validação no servidor.
+- Mensalidades de 10€/mês desde outubro de 2026, com prazo normal entre os dias 1 e 8.
+- Pago, Em falta, Isento ou Pendente; Numerário/MB Way; data, observação, totais e filtros.
+- Número de pagamento automático no formato `GDR-PAG-2026-00001`.
+- Comprovativo interno imprimível/PDF, claramente identificado como documento sem valor fiscal.
+- Alertas automáticos por email: dia 6, dia 9 e semanalmente após o prazo enquanto existirem pagamentos em falta.
+- Treinadores consultam; só o Admin altera, com validação no servidor.
 - Sete inicial visual e arrastável com foto, nome, número e equipamento vermelho/branco.
 - Semáforo explicado por assiduidade recente, comportamento, empenho e evolução.
 - Calendário com treinos, jogos, torneios, outros eventos e próximos eventos no início.
@@ -20,7 +24,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta apenas folhas/colunas em falta, sem limpar ou eliminar linhas. Cria `MONTHLY_FEES`, `EVENTS` e `LINEUPS`; atletas, fotos, treinos, registos e convocatórias existentes são preservados.
+`setup()` acrescenta apenas folhas/colunas em falta, sem limpar ou eliminar linhas. Cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS` e `SETTINGS`; atletas, fotos, treinos, registos e convocatórias existentes são preservados. Também cria o alerta diário automático das mensalidades.
 
 ## Upload no GitHub
 
@@ -36,8 +40,9 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 
 1. Confirme atletas/fotos e abra uma ficha com semáforo.
 2. Registe um treino de teste.
-3. Marque uma mensalidade como paga e imprima o recibo.
-4. Guarde uma convocatória e prepare o Sete inicial no histórico de jogos.
-5. Crie um Torneio no Calendário e confirme-o em Próximos eventos.
+3. Em Mensalidades, confirme o email dos alertas e carregue em **Guardar**.
+4. Marque uma mensalidade como paga, confirme o número automático e imprima o comprovativo interno.
+5. Guarde uma convocatória e prepare o Sete inicial no histórico de jogos.
+6. Crie um Torneio no Calendário e confirme-o em Próximos eventos.
 
-Versão: **9.0.0**.
+Versão: **9.1.0**.

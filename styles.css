@@ -1015,6 +1015,17 @@ button {
 .fee-filters {
   margin-bottom: 10px;
 }
+.alert-settings {
+  margin-bottom: 10px;
+  border-left: 4px solid var(--red);
+}
+.inline-field {
+  display: flex;
+  gap: 8px;
+}
+.inline-field input {
+  flex: 1;
+}
 .fee-kpis {
   margin-bottom: 10px;
 }
@@ -1134,5 +1145,8 @@ button {
   }
   .fee-row .grow {
     min-width: 180px;
+  }
+  .inline-field {
+    flex-direction: column;
   }
 }
