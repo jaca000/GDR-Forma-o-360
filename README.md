@@ -1,4 +1,4 @@
-# GDR Formação 360 — v9.4
+# GDR Formação 360 — v10
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -18,6 +18,13 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Conteúdo do painel adaptado ao perfil Admin ou Treinador.
 - Na lista de faltas antecipadas, cada atleta apresenta imediatamente o badge do escalão: Traquinas, Benjamins ou misto.
 - Resumo visual das próximas faltas com contagem total e separação por Traquinas e Benjamins.
+- Disponibilidade por jogo com estados Disponível, Indisponível e Sem resposta, observação e totais imediatos.
+- Fluxo integrado: criar jogo → recolher disponibilidade → gerar convocatória → preparar sete inicial.
+- A sugestão de convocatória dá prioridade aos disponíveis, considera os atletas sem resposta e exclui os indisponíveis.
+- Aviso e bloqueio de atletas indisponíveis na convocatória.
+- Resumo semanal completo, navegável por semana e separado por Traquinas e Benjamins: treinos, jogos, assiduidade, faltas, empenho, comportamento, destaques e próxima semana.
+- Resumo semanal imprimível/PDF e envio automático por email todas as segundas-feiras.
+- Botão de envio imediato do resumo semanal para teste ou partilha interna.
 - Sete inicial visual e arrastável com foto, nome, número e equipamento vermelho/branco.
 - Semáforo explicado por assiduidade recente, comportamento, empenho e evolução.
 - Calendário com treinos, jogos, torneios, outros eventos e próximos eventos no início.
@@ -32,7 +39,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta apenas folhas/colunas em falta, sem limpar ou eliminar linhas. Cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS` e `PLANNED_ABSENCES`; atletas, fotos, treinos, registos e convocatórias existentes são preservados. Também cria o alerta diário automático das mensalidades.
+`setup()` acrescenta apenas folhas/colunas em falta, sem limpar ou eliminar linhas. Cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES` e `GAME_AVAILABILITY`; atletas, fotos, treinos, registos e convocatórias existentes são preservados. Também cria os alertas das mensalidades e o envio automático do resumo semanal.
 
 ## Upload no GitHub
 
@@ -53,5 +60,7 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 5. Marque uma mensalidade como paga, confirme o número automático e imprima o comprovativo interno.
 6. Guarde uma convocatória e prepare o Sete inicial no histórico de jogos.
 7. Crie um Torneio no Calendário e confirme-o em Próximos eventos.
+8. Crie um jogo, registe Disponível/Indisponível/Sem resposta e confirme que a sugestão da convocatória exclui os indisponíveis.
+9. Abra Resumo semanal, confirme o email, imprima o PDF e teste Enviar agora.
 
-Versão: **9.4.0**.
+Versão: **10.0.0**.

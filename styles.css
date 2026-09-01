@@ -944,6 +944,272 @@ button {
   align-items: center;
   gap: 10px;
 }
+.game-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.game-availability-mini {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+.available {
+  color: var(--green) !important;
+}
+.unavailable {
+  color: var(--danger) !important;
+}
+.no-answer {
+  color: var(--amber) !important;
+}
+.availability-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.availability-summary .card {
+  box-shadow: none;
+  text-align: center;
+}
+.availability-summary span,
+.availability-summary strong {
+  display: block;
+}
+.availability-summary span {
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.availability-summary strong {
+  margin-top: 5px;
+  font-size: 27px;
+}
+.availability-summary .available {
+  background: #eaf8f0;
+}
+.availability-summary .unavailable {
+  background: #ffeded;
+}
+.availability-summary .no-answer {
+  background: #fff7d9;
+}
+.availability-summary .total {
+  background: #f0f1f3;
+}
+.availability-toolbar {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.availability-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.availability-row.disponível {
+  border-left: 4px solid var(--green);
+}
+.availability-row.indisponível {
+  border-left: 4px solid var(--danger);
+}
+.availability-row.sem-resposta {
+  border-left: 4px solid var(--yellow);
+}
+.availability-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 8px 0 6px;
+}
+.availability-buttons button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 4px;
+  background: #fff;
+  font-size: 9px;
+  font-weight: 800;
+}
+.availability-buttons button.active {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(181, 18, 27, 0.1);
+}
+.availability-note {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 10px;
+}
+.availability-save {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 7px;
+}
+.availability-badge {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #f0f1f3;
+  font-size: 8px;
+  font-weight: 900;
+}
+.callup-row.availability-indisponível {
+  opacity: 0.58;
+}
+.weekly-email,
+.week-picker {
+  margin-bottom: 10px;
+}
+.week-picker {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 10px;
+  text-align: center;
+}
+.week-picker label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+.week-picker input {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.weekly-hero {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(3, 1fr);
+  overflow: hidden;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #861018, #c31b25);
+  color: #fff;
+}
+.weekly-hero > div {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 105px;
+  padding: 13px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  text-align: center;
+}
+.weekly-hero > div:first-child {
+  border-left: 0;
+}
+.weekly-hero span,
+.weekly-hero strong,
+.weekly-hero b {
+  display: block;
+}
+.weekly-hero span,
+.weekly-hero b {
+  font-size: 9px;
+}
+.weekly-hero span {
+  color: rgba(255, 255, 255, 0.7);
+}
+.weekly-hero strong {
+  margin: 5px 0;
+  font-size: 29px;
+}
+.weekly-groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.weekly-group {
+  box-shadow: none;
+}
+.weekly-group.traquinas {
+  border-top: 5px solid #e9a52f;
+}
+.weekly-group.benjamins {
+  border-top: 5px solid #4c84d7;
+}
+.weekly-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.weekly-group-head h3 {
+  margin: 0;
+}
+.weekly-group-head strong {
+  font-size: 25px;
+}
+.weekly-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  margin-top: 10px;
+}
+.weekly-metrics span {
+  padding: 7px 3px;
+  border-radius: 9px;
+  background: #f5f6f7;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: center;
+}
+.weekly-metrics b {
+  display: block;
+  color: var(--text);
+  font-size: 15px;
+}
+.weekly-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+.compact-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 9px;
+  box-shadow: none;
+  font-size: 10px;
+}
+.compact-row span {
+  color: var(--muted);
+}
+.weekly-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  box-shadow: none;
+}
+.weekly-tags > span {
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: #fff3d8;
+  font-size: 9px;
+}
+.next-game-availability {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  box-shadow: none;
+}
+.next-game-availability > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.next-game-availability i {
+  margin-right: 8px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
 .empty {
   text-align: center;
   color: var(--muted);
@@ -1402,6 +1668,43 @@ button {
   margin-top: -8px;
 }
 @media (max-width: 500px) {
+  .game-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .game-actions {
+    width: 100%;
+  }
+  .game-actions .btn {
+    flex: 1;
+  }
+  .availability-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .availability-save {
+    grid-template-columns: 1fr;
+  }
+  .week-picker {
+    grid-template-columns: 1fr 1fr;
+  }
+  .week-picker > div {
+    grid-column: 1 / 3;
+    grid-row: 1;
+  }
+  .weekly-hero {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .weekly-hero > div:first-child {
+    grid-column: 1 / 4;
+    min-height: 90px;
+  }
+  .weekly-groups,
+  .weekly-columns {
+    grid-template-columns: 1fr;
+  }
+  .weekly-metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
   .absence-summary {
     grid-template-columns: repeat(3, 1fr);
   }

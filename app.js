@@ -12,6 +12,7 @@ let state = {
   events: [],
   lineups: [],
   plannedAbsences: [],
+  gameAvailability: [],
   settings: { feeAmount: 10 },
 };
 let view = "home",
@@ -20,6 +21,7 @@ let view = "home",
   selectedAthleteId = null,
   feeDraft = null,
   lineupDraft = null;
+let availabilityDraft = null;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s = "") =>
@@ -129,7 +131,7 @@ function nav() {
     ["training", "⚽", "Treino"],
     ["fees", "€", "Mensalidades"],
     ["calendar", "📅", "Calendário"],
-    ["dashboard", "📊", "Dashboard"],
+      ["weekly", "📊", "Semana"],
   ]
     .map(
       ([v, i, t]) =>
@@ -197,6 +199,17 @@ function goBack() {
     return;
   }
   if (view === "absences") {
+    view = "home";
+    render();
+    return;
+  }
+  if (view === "availability") {
+    availabilityDraft = null;
+    view = "games";
+    render();
+    return;
+  }
+  if (view === "weekly") {
     view = "home";
     render();
     return;
@@ -375,7 +388,7 @@ function home() {
   <aside><div class="section"><h3>Tarefas pendentes</h3><span class="task-count">${tasks.length}</span></div><div class="task-list">${tasks.map((t) => `<button class="card" onclick="${t.action}"><span>${t.icon}</span><b>${esc(t.text)}</b><i>›</i></button>`).join("") || '<div class="card all-good">✓ Não existem tarefas urgentes.</div>'}</div>
   <div class="section"><h3>Faltas comunicadas</h3><button class="btn btn-small btn-ghost" onclick="go('absences')">Gerir</button></div><div class="card mini-summary"><strong>${planned.length}</strong><span>próximas</span><b>${todayAbsences.length} hoje</b></div>
   <div class="section"><h3>Mensalidades</h3><button class="btn btn-small btn-ghost" onclick="go('fees')">Abrir</button></div>${feesStarted ? `<div class="card mini-summary"><strong>${feesPaid}/${active.length}</strong><span>pagas este mês</span><b class="${feesMissing ? "danger-text" : ""}">${feesMissing} em falta</b></div>` : '<div class="card mini-summary future"><strong>Outubro 2026</strong><span>início das mensalidades</span></div>'}</aside></div>
-  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="go('callup')">📋 Convocatória</button><button class="btn btn-secondary" onclick="view='games';render()">🗺️ Sete inicial</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
+  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
 }
 
 function absences() {
@@ -861,6 +874,141 @@ function monthlyHighlights() {
     .join("")}</div>`;
 }
 
+function mondayOf(date = new Date()) {
+  const d = new Date(date),
+    day = d.getDay() || 7;
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - day + 1);
+  return d.toISOString().slice(0, 10);
+}
+function addDays(date, days) {
+  const d = new Date(date + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function weeklyData(start) {
+  const end = addDays(start, 6),
+    trainings = state.trainings.filter((t) => t.date >= start && t.date <= end),
+    ids = new Set(trainings.map((t) => t.id)),
+    records = state.records.filter((r) => ids.has(r.trainingId)),
+    games = state.games.filter((g) => g.date >= start && g.date <= end),
+    active = state.athletes.filter((a) => a.active);
+  const groupData = ["Traquinas", "Benjamins"].map((group) => {
+    const athleteIds = new Set(
+        active
+          .filter((a) => a.group === group || a.group === "Traquinas/Benjamins")
+          .map((a) => a.id),
+      ),
+      rr = records.filter((r) => athleteIds.has(r.athleteId)),
+      present = rr.filter((r) => r.status === "Presente"),
+      average = (key) =>
+        present.length
+          ? (
+              present.reduce((sum, r) => sum + Number(r[key] || 0), 0) /
+              present.length
+            ).toFixed(1)
+          : "—";
+    return {
+      group,
+      athletes: athleteIds.size,
+      records: rr.length,
+      present: present.length,
+      absences: rr.length - present.length,
+      attendance: rr.length
+        ? Math.round((present.length / rr.length) * 100)
+        : 0,
+      effort: average("effort"),
+      behavior: average("behavior"),
+    };
+  });
+  const present = records.filter((r) => r.status === "Presente"),
+    planned = (state.plannedAbsences || []).filter(
+      (a) => a.active && a.date >= start && a.date <= end,
+    ),
+    nextEvents = allEvents()
+      .filter((e) => e.date > end && e.date <= addDays(end, 7))
+      .slice(0, 6),
+    tags = {};
+  records.forEach((r) =>
+    (r.tags || []).forEach((t) => (tags[t] = (tags[t] || 0) + 1)),
+  );
+  return {
+    start,
+    end,
+    trainings,
+    records,
+    games,
+    groupData,
+    attendance: records.length
+      ? Math.round((present.length / records.length) * 100)
+      : 0,
+    planned,
+    nextEvents,
+    topTags: Object.entries(tags)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4),
+  };
+}
+function weekly() {
+  const start = $("weeklyStart")?.value || mondayOf(),
+    data = weeklyData(start),
+    nextGame = [...state.games]
+      .filter((g) => g.date > data.end)
+      .sort((a, b) => a.date.localeCompare(b.date))[0],
+    av = nextGame ? availabilityCounts(nextGame.id, nextGame.group) : null;
+  return `<div class="section"><div><h3>Resumo semanal</h3><div class="muted">Uma leitura rápida da semana da formação.</div></div><button class="btn btn-secondary" onclick="printWeeklySummary()">🖨️ PDF / Imprimir</button></div>${admin() ? `<div class="card weekly-email"><div class="field"><label>Envio automático à segunda-feira</label><div class="inline-field"><input id="weeklyEmail" type="email" value="${esc(state.settings?.weeklySummaryEmail || "")}" placeholder="nome@exemplo.pt"><button class="btn btn-primary" onclick="saveWeeklySettings()">Guardar email</button><button class="btn btn-secondary" onclick="sendWeeklyNow()">Enviar agora</button></div><div class="muted">O resumo da semana anterior é enviado automaticamente todas as segundas-feiras de manhã.</div></div></div>` : ""}<div class="card week-picker"><button class="btn btn-ghost" onclick="changeWeek(-7)">← Semana anterior</button><div><label>Semana com início em</label><input id="weeklyStart" type="date" value="${start}" onchange="render()"></div><button class="btn btn-ghost" onclick="changeWeek(7)">Semana seguinte →</button></div><div class="weekly-hero"><div><span>${fmt(data.start)} — ${fmt(data.end)}</span><strong>${data.attendance}%</strong><b>Assiduidade global</b></div><div><strong>${data.trainings.length}</strong><b>Treinos</b></div><div><strong>${data.games.length}</strong><b>Jogos</b></div><div><strong>${data.planned.length}</strong><b>Faltas antecipadas</b></div></div><div class="section"><h3>Resumo por escalão</h3></div><div class="weekly-groups">${data.groupData.map((g) => `<div class="card weekly-group ${g.group.toLowerCase()}"><div class="weekly-group-head"><h3>${esc(g.group)}</h3><strong>${g.attendance}%</strong></div><div class="weekly-metrics"><span><b>${g.athletes}</b> atletas</span><span><b>${g.present}</b> presenças</span><span><b>${g.absences}</b> faltas</span><span><b>${g.effort}</b> empenho</span><span><b>${g.behavior}</b> comportamento</span></div></div>`).join("")}</div><div class="weekly-columns"><div><div class="section"><h3>Atividade da semana</h3></div><div class="list">${data.trainings.map((t) => `<div class="card compact-row"><b>⚽ ${fmt(t.date)}</b><span>${esc(t.group)} · ${esc(t.time || "")}</span></div>`).join("")}${data.games.map((g) => `<div class="card compact-row"><b>🏟️ ${fmt(g.date)}</b><span>GDR × ${esc(g.opponent)} · ${esc(g.group)}</span></div>`).join("") || '<div class="card empty">Sem atividade registada nesta semana.</div>'}</div></div><div><div class="section"><h3>Destaques e próxima semana</h3></div><div class="card weekly-tags">${data.topTags.length ? data.topTags.map(([tag, n]) => `<span>${esc(tag)} <b>${n}</b></span>`).join("") : '<div class="empty">Sem destaques registados.</div>'}</div><div class="list next-week">${data.nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos na próxima semana.</div>'}</div>${nextGame ? `<div class="card next-game-availability"><b>Disponibilidade · próximo jogo</b><span>GDR × ${esc(nextGame.opponent)} · ${fmt(nextGame.date)}</span><div><i class="available">✅ ${av.available}</i><i class="unavailable">❌ ${av.unavailable}</i><i class="no-answer">❔ ${av.noAnswer}</i></div><button class="btn btn-small btn-secondary" onclick="openAvailability('${nextGame.id}')">Atualizar disponibilidade</button></div>` : ""}</div></div>`;
+}
+function changeWeek(days) {
+  const current = $("weeklyStart")?.value || mondayOf();
+  const target = addDays(current, days);
+  view = "weekly";
+  render();
+  setTimeout(() => {
+    if ($("weeklyStart")) {
+      $("weeklyStart").value = target;
+      render();
+    }
+  }, 0);
+}
+async function saveWeeklySettings() {
+  try {
+    await api("saveWeeklySettings", { email: $("weeklyEmail").value.trim() });
+    await refresh();
+    render();
+    toast("Email do resumo semanal guardado");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function sendWeeklyNow() {
+  try {
+    const start = $("weeklyStart").value,
+      end = addDays(start, 6);
+    await api("sendWeeklySummary", { start, end });
+    toast("Resumo semanal enviado por email");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+function weeklyPrintBody(data) {
+  return `<div class="report-grid"><div class="report-kpi">Treinos<b>${data.trainings.length}</b></div><div class="report-kpi">Jogos<b>${data.games.length}</b></div><div class="report-kpi">Assiduidade<b>${data.attendance}%</b></div><div class="report-kpi">Faltas antecipadas<b>${data.planned.length}</b></div></div><table class="report-table"><thead><tr><th>Escalão</th><th>Atletas</th><th>Assiduidade</th><th>Presenças</th><th>Faltas</th><th>Empenho</th><th>Comport.</th></tr></thead><tbody>${data.groupData.map((g) => `<tr><td><b>${g.group}</b></td><td>${g.athletes}</td><td>${g.attendance}%</td><td>${g.present}</td><td>${g.absences}</td><td>${g.effort}</td><td>${g.behavior}</td></tr>`).join("")}</tbody></table><h3>Atividade</h3>${data.trainings.map((t) => `<p>⚽ ${fmt(t.date)} · Treino ${esc(t.group)}</p>`).join("")}${data.games.map((g) => `<p>🏟️ ${fmt(g.date)} · GDR × ${esc(g.opponent)} · ${esc(g.group)}</p>`).join("")}<h3>Próxima semana</h3>${data.nextEvents.map((e) => `<p>${fmt(e.date)} · ${esc(e.title)}</p>`).join("") || "<p>Sem eventos registados.</p>"}`;
+}
+function printWeeklySummary() {
+  const start = $("weeklyStart")?.value || mondayOf(),
+    data = weeklyData(start),
+    w = window.open("", "_blank");
+  w.document.write(
+    printDoc(
+      "Resumo semanal da formação",
+      `${fmt(data.start)} a ${fmt(data.end)}`,
+      "GDR Faro do Alentejo",
+      "",
+      weeklyPrintBody(data),
+    ),
+  );
+  w.document.close();
+}
+
 function trafficLight(id) {
   const rr = recentRecords(id, 6),
     present = rr.filter((r) => r.status === "Presente"),
@@ -1109,8 +1257,27 @@ async function deleteEvent(id) {
 
 function callup() {
   if (!callupDraft)
-    return `<div class="section"><h3>Nova convocatória</h3></div><div class="card"><div class="field"><label>Adversário</label><input id="opp"></div><div class="form2"><div class="field"><label>Data</label><input id="gd" type="date" value="${new Date().toISOString().slice(0, 10)}"></div><div class="field"><label>Hora</label><input id="gh" type="time"></div></div><div class="form2"><div class="field"><label>Escalão</label><select id="gg"><option>Benjamins</option><option>Traquinas</option></select></div><div class="field"><label>N.º jogadores</label><input id="gn" type="number" min="1" value="12"></div></div><div class="field"><label>Equipamento</label><select id="ge"><option value="Vermelho">🔴 Vermelho</option><option value="Branco">⚪ Branco</option></select></div><button class="btn btn-primary btn-block" onclick="prepareCallup()">Gerar sugestão</button></div>`;
+    return `<div class="section"><h3>Novo jogo</h3></div><div class="admin-note">Primeiro cria o jogo e regista a disponibilidade. Depois a app prepara a sugestão de convocatória apenas com quem pode comparecer.</div><div class="card"><div class="field"><label>Adversário</label><input id="opp"></div><div class="form2"><div class="field"><label>Data</label><input id="gd" type="date" value="${new Date().toISOString().slice(0, 10)}"></div><div class="field"><label>Hora</label><input id="gh" type="time"></div></div><div class="form2"><div class="field"><label>Escalão</label><select id="gg"><option>Benjamins</option><option>Traquinas</option></select></div><div class="field"><label>N.º jogadores para convocar</label><input id="gn" type="number" min="1" value="12"></div></div><div class="field"><label>Equipamento</label><select id="ge"><option value="Vermelho">🔴 Vermelho</option><option value="Branco">⚪ Branco</option></select></div><button class="btn btn-primary btn-block" onclick="createGameForAvailability()">Continuar para disponibilidade</button></div>`;
   return callupEditor();
+}
+async function createGameForAvailability() {
+  try {
+    const game = {
+      id: uid("g"),
+      opponent: $("opp").value.trim() || "Adversário",
+      date: $("gd").value,
+      time: $("gh").value,
+      group: $("gg").value,
+      equipment: $("ge").value,
+      callupLimit: Number($("gn").value || 12),
+    };
+    await api("saveCallup", { game, callups: [] });
+    await refresh();
+    openAvailability(game.id);
+    toast("Jogo criado. Regista agora a disponibilidade.");
+  } catch (e) {
+    toast(e.message);
+  }
 }
 function rotationBoost(a) {
   const recentGames = state.games
@@ -1138,7 +1305,12 @@ function prepareCallup() {
       (a) =>
         a.active && (a.group === group || a.group === "Traquinas/Benjamins"),
     ),
-  ).map((a) => ({ ...a, score: score(a), rotation: rotationBoost(a) }));
+  ).map((a) => ({
+    ...a,
+    score: score(a),
+    rotation: rotationBoost(a),
+    availability: "Sem resposta",
+  }));
   const recommended = [...eligible]
     .sort((a, b) => b.score + b.rotation - (a.score + a.rotation))
     .slice(0, n)
@@ -1156,7 +1328,56 @@ function prepareCallup() {
   };
   render();
 }
+function prepareCallupForGame(gameId) {
+  const g = state.games.find((x) => x.id === gameId);
+  if (!g) return;
+  const limit = Number(g.callupLimit || 12),
+    eligible = sortName(
+      state.athletes.filter(
+        (a) =>
+          a.active &&
+          (a.group === g.group || a.group === "Traquinas/Benjamins"),
+      ),
+    ).map((a) => {
+      const av = state.gameAvailability.find(
+        (x) => x.gameId === g.id && x.athleteId === a.id,
+      );
+      return {
+        ...a,
+        score: score(a),
+        rotation: rotationBoost(a),
+        availability: av?.status || "Sem resposta",
+      };
+    }),
+    selectable = eligible.filter((a) => a.availability !== "Indisponível"),
+    recommended = [...selectable]
+      .sort(
+        (a, b) =>
+          (a.availability === "Disponível" ? -1 : 1) -
+            (b.availability === "Disponível" ? -1 : 1) ||
+          b.score + b.rotation - (a.score + a.rotation),
+      )
+      .slice(0, limit)
+      .map((a) => a.id);
+  callupDraft = {
+    id: g.id,
+    opponent: g.opponent,
+    date: g.date,
+    time: g.time,
+    group: g.group,
+    equipment: g.equipment || "Vermelho",
+    limit,
+    eligible,
+    selected: new Set(recommended),
+  };
+  availabilityDraft = null;
+  view = "callup";
+  render();
+}
 function toggleCallup(id) {
+  const athlete = callupDraft.eligible.find((a) => a.id === id);
+  if (!callupDraft.selected.has(id) && athlete?.availability === "Indisponível")
+    return toast("Este atleta está marcado como indisponível para o jogo.");
   if (callupDraft.selected.has(id)) callupDraft.selected.delete(id);
   else {
     if (callupDraft.selected.size >= callupDraft.limit)
@@ -1175,7 +1396,7 @@ function callupEditor() {
     .sort((a, b) => b.score + b.rotation - (a.score + a.rotation))
     .map(
       (a) =>
-        `<button class="card callup-row ${callupDraft.selected.has(a.id) ? "selected" : ""}" onclick="toggleCallup('${a.id}')">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="number-badge">#${esc(shirtNumber(a, callupDraft.equipment))}</span></div><div class="muted">Índice ${score(a)}${a.rotation ? ` · 🔄 rotação +${a.rotation}` : ""}</div></div><span class="checkmark">${callupDraft.selected.has(a.id) ? "✓" : ""}</span></button>`,
+        `<button class="card callup-row availability-${a.availability.replace(" ", "-").toLowerCase()} ${callupDraft.selected.has(a.id) ? "selected" : ""}" onclick="toggleCallup('${a.id}')">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="number-badge">#${esc(shirtNumber(a, callupDraft.equipment))}</span><span class="availability-badge">${availabilityIcon(a.availability)} ${esc(a.availability)}</span></div><div class="muted">Índice ${score(a)}${a.rotation ? ` · 🔄 rotação +${a.rotation}` : ""}</div></div><span class="checkmark">${callupDraft.selected.has(a.id) ? "✓" : ""}</span></button>`,
     )
     .join(
       "",
@@ -1192,6 +1413,8 @@ async function saveCallup() {
       callupDraft.selected.has(a.id),
     );
     if (!selected.length) return toast("Seleciona pelo menos um jogador");
+    if (selected.some((a) => a.availability === "Indisponível"))
+      return toast("Retira da convocatória os atletas indisponíveis.");
     await api("saveCallup", {
       game: {
         id: callupDraft.id,
@@ -1200,6 +1423,7 @@ async function saveCallup() {
         time: callupDraft.time,
         group: callupDraft.group,
         equipment: callupDraft.equipment,
+        callupLimit: callupDraft.limit,
       },
       callups: selected.map((a) => ({
         id: uid("c"),
@@ -1292,16 +1516,113 @@ function games() {
   const gg = [...state.games].sort((a, b) =>
     String(b.date).localeCompare(String(a.date)),
   );
-  return `<div class="section"><h3>Jogos e sete inicial</h3><button class="btn btn-primary" onclick="go('callup')">+ Convocatória</button></div><div class="list">${
+  return `<div class="section"><h3>Jogos, disponibilidade e equipa</h3><button class="btn btn-primary" onclick="go('callup')">+ Novo jogo</button></div><div class="list">${
     gg
       .map((g) => {
         const cs = state.callups.filter(
           (c) => c.gameId === g.id && c.status === "Convocado",
         );
-        return `<div class="card game-card"><div><strong>${fmt(g.date)}</strong><div class="muted">${esc(g.group || "")} · ${esc(g.equipment || "")}</div></div><div class="grow"><b>vs ${esc(g.opponent)}</b><div class="muted">${cs.length} convocados</div></div><button class="btn btn-small btn-primary" onclick="openLineup('${g.id}')">🗺️ Sete inicial</button></div>`;
+        const av = availabilityCounts(g.id, g.group);
+        return `<div class="card game-card"><div><strong>${fmt(g.date)}</strong><div class="muted">${esc(g.group || "")} · ${esc(g.equipment || "")}</div></div><div class="grow"><b>vs ${esc(g.opponent)}</b><div class="game-availability-mini"><span class="available">✓ ${av.available}</span><span class="unavailable">× ${av.unavailable}</span><span class="no-answer">? ${av.noAnswer}</span><span>${cs.length} convocados</span></div></div><div class="game-actions"><button class="btn btn-small btn-secondary" onclick="openAvailability('${g.id}')">Disponibilidade</button><button class="btn btn-small btn-primary" onclick="prepareCallupForGame('${g.id}')">Convocar</button><button class="btn btn-small btn-ghost" onclick="openLineup('${g.id}')">🗺️ Sete</button></div></div>`;
       })
       .join("") || '<div class="card empty">Ainda sem jogos guardados.</div>'
   }</div>`;
+}
+
+function availabilityIcon(status) {
+  return status === "Disponível"
+    ? "✅"
+    : status === "Indisponível"
+      ? "❌"
+      : "❔";
+}
+function gameAthletes(game) {
+  return sortName(
+    state.athletes.filter(
+      (a) =>
+        a.active &&
+        (a.group === game.group || a.group === "Traquinas/Benjamins"),
+    ),
+  );
+}
+function availabilityCounts(gameId, group) {
+  const g = state.games.find((x) => x.id === gameId) || { id: gameId, group },
+    athletes = gameAthletes(g),
+    rows = state.gameAvailability.filter((x) => x.gameId === gameId);
+  return {
+    available: athletes.filter(
+      (a) => rows.find((x) => x.athleteId === a.id)?.status === "Disponível",
+    ).length,
+    unavailable: athletes.filter(
+      (a) => rows.find((x) => x.athleteId === a.id)?.status === "Indisponível",
+    ).length,
+    noAnswer: athletes.filter(
+      (a) =>
+        !rows.find((x) => x.athleteId === a.id) ||
+        rows.find((x) => x.athleteId === a.id)?.status === "Sem resposta",
+    ).length,
+    total: athletes.length,
+  };
+}
+function openAvailability(gameId) {
+  const game = state.games.find((x) => x.id === gameId);
+  if (!game) return;
+  const rows = {};
+  gameAthletes(game).forEach((a) => {
+    const saved = state.gameAvailability.find(
+      (x) => x.gameId === gameId && x.athleteId === a.id,
+    );
+    rows[a.id] = {
+      status: saved?.status || "Sem resposta",
+      note: saved?.note || "",
+    };
+  });
+  availabilityDraft = { game, rows };
+  view = "availability";
+  render();
+}
+function setAvailability(athleteId, status) {
+  availabilityDraft.rows[athleteId].status = status;
+  render();
+}
+function availability() {
+  const g = availabilityDraft.game,
+    athletes = gameAthletes(g),
+    values = Object.values(availabilityDraft.rows),
+    available = values.filter((x) => x.status === "Disponível").length,
+    unavailable = values.filter((x) => x.status === "Indisponível").length,
+    noAnswer = values.filter((x) => x.status === "Sem resposta").length;
+  return `<div class="section"><div><h3>Disponibilidade para o jogo</h3><div class="muted">GDR × ${esc(g.opponent)} · ${fmt(g.date)} · ${esc(g.group)}</div></div></div><div class="availability-summary"><div class="card available"><span>Disponíveis</span><strong>${available}</strong></div><div class="card unavailable"><span>Indisponíveis</span><strong>${unavailable}</strong></div><div class="card no-answer"><span>Sem resposta</span><strong>${noAnswer}</strong></div><div class="card total"><span>Total</span><strong>${athletes.length}</strong></div></div><div class="availability-toolbar"><button class="btn btn-small btn-secondary" onclick="setAllAvailability('Disponível')">Todos disponíveis</button><button class="btn btn-small btn-ghost" onclick="setAllAvailability('Sem resposta')">Limpar respostas</button></div><div class="list">${athletes
+    .map((a) => {
+      const row = availabilityDraft.rows[a.id];
+      return `<div class="card availability-row ${row.status.replace(" ", "-").toLowerCase()}">${avatar(a)}<div class="grow"><div class="absence-name"><strong>${esc(a.name)}</strong>${groupBadge(a.group)}</div><div class="availability-buttons">${["Disponível", "Indisponível", "Sem resposta"].map((s) => `<button class="${row.status === s ? "active" : ""}" onclick="setAvailability('${a.id}','${s}')">${availabilityIcon(s)} ${s}</button>`).join("")}</div><input class="availability-note" value="${esc(row.note)}" placeholder="Observação opcional" onchange="availabilityDraft.rows['${a.id}'].note=this.value"></div></div>`;
+    })
+    .join(
+      "",
+    )}</div><div class="sticky-save availability-save"><button class="btn btn-secondary" onclick="saveAvailability()">Guardar disponibilidade</button><button class="btn btn-primary" onclick="saveAvailability(true)">Guardar e preparar convocatória</button></div>`;
+}
+function setAllAvailability(status) {
+  Object.values(availabilityDraft.rows).forEach((x) => (x.status = status));
+  render();
+}
+async function saveAvailability(prepare = false) {
+  try {
+    const gameId = availabilityDraft.game.id,
+      availability = Object.entries(availabilityDraft.rows).map(
+        ([athleteId, row]) => ({ athleteId, ...row }),
+      );
+    await api("saveGameAvailability", { gameId, availability });
+    await refresh();
+    toast("Disponibilidade guardada");
+    if (prepare) prepareCallupForGame(gameId);
+    else {
+      view = "games";
+      availabilityDraft = null;
+      render();
+    }
+  } catch (e) {
+    toast(e.message);
+  }
 }
 
 function openLineup(gameId) {
@@ -1468,6 +1789,8 @@ function render() {
   else if (view === "eventForm") b = eventFormView();
   else if (view === "lineup") b = lineup();
   else if (view === "absences") b = absences();
+  else if (view === "availability") b = availability();
+  else if (view === "weekly") b = weekly();
   else if (view === "games") b = games();
   else if (view === "users") b = users();
   else return;
