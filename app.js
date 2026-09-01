@@ -11,6 +11,7 @@ let state = {
   monthlyFees: [],
   events: [],
   lineups: [],
+  plannedAbsences: [],
   settings: { feeAmount: 10 },
 };
 let view = "home",
@@ -195,6 +196,11 @@ function goBack() {
     render();
     return;
   }
+  if (view === "absences") {
+    view = "home";
+    render();
+    return;
+  }
   view = "home";
   draft = null;
   callupDraft = null;
@@ -285,7 +291,60 @@ function home() {
  <div class="grid"><div class="card kpi"><span>Atletas</span><strong>${aa.length}</strong></div><div class="card kpi"><span>Treinos</span><strong>${state.trainings.length}</strong></div><div class="card kpi"><span>Assiduidade</span><strong>${rec.length ? Math.round((p / rec.length) * 100) : 0}%</strong></div><div class="card kpi"><span>Jogos</span><strong>${state.games.length}</strong></div></div>
  ${alerts.length ? `<div class="section"><h3>A acompanhar</h3></div><div class="list">${alerts.map((a) => `<div class="card insight ${a.level}"><strong>${a.icon} ${esc(a.title)}</strong><div class="muted">${esc(a.text)}</div></div>`).join("")}</div>` : ""}
  ${nextEventsHome()}
- <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid"><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button><button class="btn btn-secondary" onclick="go('callup')">📋 Preparar convocatória</button><button class="btn btn-secondary" onclick="go('fees')">💶 Mensalidades</button><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('athletes')">👥 ${admin() ? "Gerir" : "Ver"} atletas</button><button class="btn btn-secondary" onclick="view='games';render()">🗺️ Jogos e sete inicial</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
+ <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid"><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="go('callup')">📋 Preparar convocatória</button><button class="btn btn-secondary" onclick="go('fees')">💶 Mensalidades</button><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('athletes')">👥 ${admin() ? "Gerir" : "Ver"} atletas</button><button class="btn btn-secondary" onclick="view='games';render()">🗺️ Jogos e sete inicial</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
+}
+
+function absences() {
+  const today = new Date().toISOString().slice(0, 10),
+    upcoming = (state.plannedAbsences || [])
+      .filter((x) => x.active && x.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  return `<div class="section"><div><h3>Faltas antecipadas</h3><div class="muted">Para ausências comunicadas pelos pais antes do treino.</div></div></div><div class="card"><div class="field"><label>Atleta</label><select id="paa">${sortName(
+    state.athletes.filter((a) => a.active),
+  )
+    .map(
+      (a) =>
+        `<option value="${a.id}">${esc(a.name)} · ${esc(a.group)}</option>`,
+    )
+    .join(
+      "",
+    )}</select></div><div class="form2"><div class="field"><label>Data da falta</label><input id="pad" type="date" min="${today}" value="${today}"></div><div class="field"><label>Motivo</label><select id="par"><option>Doença</option><option>Escola</option><option>Família</option><option>Outro</option></select></div></div><div class="field"><label>Observação opcional</label><textarea id="pan" placeholder="Informação comunicada pelos pais"></textarea></div><button class="btn btn-primary btn-block" onclick="savePlannedAbsence()">Registar falta antecipada</button></div><div class="section"><h3>Próximas faltas comunicadas</h3></div><div class="list">${
+    upcoming
+      .map((x) => {
+        const a = state.athletes.find((p) => p.id === x.athleteId);
+        return `<div class="card absence-row">${a ? avatar(a) : ""}<div class="grow"><strong>${esc(a?.name || "Atleta")}</strong><div>${fmt(x.date)} · ${esc(x.reason)}</div>${x.note ? `<div class="muted">${esc(x.note)}</div>` : ""}</div><button class="btn btn-small btn-danger" onclick="deletePlannedAbsence('${x.id}')">Cancelar</button></div>`;
+      })
+      .join("") ||
+    '<div class="card empty">Não existem faltas antecipadas registadas.</div>'
+  }</div>`;
+}
+async function savePlannedAbsence() {
+  try {
+    await api("savePlannedAbsence", {
+      absence: {
+        athleteId: $("paa").value,
+        date: $("pad").value,
+        reason: $("par").value,
+        note: $("pan").value.trim(),
+      },
+    });
+    await refresh();
+    render();
+    toast("Falta antecipada registada");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function deletePlannedAbsence(id) {
+  if (!confirm("Cancelar esta falta antecipada?")) return;
+  try {
+    await api("deletePlannedAbsence", { id });
+    await refresh();
+    render();
+    toast("Falta antecipada cancelada");
+  } catch (e) {
+    toast(e.message);
+  }
 }
 
 function athletes() {
@@ -443,8 +502,18 @@ function training() {
   if (!draft)
     return `<div class="section"><h3>Registo Express</h3><span class="pill red">⚡ Rápido</span></div><div class="card"><div class="field"><label>Escalão</label><select id="tg"><option>Benjamins</option><option>Traquinas</option><option>Todos</option></select></div><div class="muted" style="margin-bottom:11px">Todos começam como <b>Presentes · 4/4/4</b>. Altera só as exceções.</div><button class="btn btn-primary btn-block" onclick="startTraining()">⚡ Iniciar treino</button></div>`;
   const people = trainingPeople(),
+    planned = plannedAbsencesForTraining(),
     c = counts(people);
-  return `<div class="section"><div><h3>Treino · ${draft.group}</h3><div class="muted">${fmt(draft.date)} · ${draft.time}</div></div><span class="pill red">⚡ Express</span></div><div class="express-summary"><div class="express-stat"><strong>${c.p}</strong><span>Presentes</span></div><div class="express-stat"><strong>${c.f}</strong><span>Faltas</span></div><div class="express-stat"><strong>${c.j}</strong><span>Justificadas</span></div><div class="express-stat"><strong>${c.c}</strong><span>Alterados</span></div></div><div class="list">${people.map(trainingCard).join("")}</div><div class="sticky-save"><button class="btn btn-primary btn-block" onclick="saveTraining()">Guardar treino · ${c.p} presentes</button></div>`;
+  return `<div class="section"><div><h3>Treino · ${draft.group}</h3><div class="muted">${fmt(draft.date)} · ${draft.time}</div></div><span class="pill red">⚡ Express</span></div><div class="express-summary"><div class="express-stat"><strong>${c.p}</strong><span>Presentes</span></div><div class="express-stat"><strong>${c.f}</strong><span>Faltas</span></div><div class="express-stat"><strong>${c.j}</strong><span>Justificadas</span></div><div class="express-stat"><strong>${planned.length}</strong><span>Antecipadas</span></div></div>${
+    planned.length
+      ? `<div class="planned-note"><strong>📆 Fora do registo por falta antecipada:</strong>${planned
+          .map((x) => {
+            const a = state.athletes.find((p) => p.id === x.athleteId);
+            return `<span>${esc(a?.name || "Atleta")} · ${esc(x.reason)}</span>`;
+          })
+          .join("")}</div>`
+      : ""
+  }<div class="list">${people.map(trainingCard).join("")}</div><div class="sticky-save"><button class="btn btn-primary btn-block" onclick="saveTraining()">Guardar treino · ${c.p} presentes</button></div>`;
 }
 function startTraining() {
   const n = new Date();
@@ -462,15 +531,33 @@ function startTraining() {
   render();
 }
 function trainingPeople() {
+  const excluded = new Set(
+    plannedAbsencesForTraining().map((x) => x.athleteId),
+  );
   return sortName(
     state.athletes.filter(
       (a) =>
         a.active &&
+        !excluded.has(a.id) &&
         (draft.group === "Todos" ||
           a.group === draft.group ||
           a.group === "Traquinas/Benjamins"),
     ),
   );
+}
+function plannedAbsencesForTraining() {
+  if (!draft) return [];
+  return (state.plannedAbsences || []).filter((x) => {
+    const a = state.athletes.find((p) => p.id === x.athleteId);
+    return (
+      x.active &&
+      x.date === draft.date &&
+      a?.active &&
+      (draft.group === "Todos" ||
+        a.group === draft.group ||
+        a.group === "Traquinas/Benjamins")
+    );
+  });
 }
 function rec(id) {
   if (!draft.records[id])
@@ -1291,6 +1378,7 @@ function render() {
   else if (view === "calendar") b = calendar();
   else if (view === "eventForm") b = eventFormView();
   else if (view === "lineup") b = lineup();
+  else if (view === "absences") b = absences();
   else if (view === "games") b = games();
   else if (view === "users") b = users();
   else return;
