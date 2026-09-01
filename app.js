@@ -283,15 +283,99 @@ function tagsCount(id) {
 }
 
 function home() {
-  const aa = state.athletes.filter((a) => a.active),
-    rec = state.records,
-    p = rec.filter((x) => x.status === "Presente").length;
-  const alerts = buildAlerts().slice(0, 3);
-  return `<section class="hero"><h2>Olá, ${esc(user.name)} 👋</h2><div class="muted">Registo rápido de treino e acompanhamento da formação.</div></section>
- <div class="grid"><div class="card kpi"><span>Atletas</span><strong>${aa.length}</strong></div><div class="card kpi"><span>Treinos</span><strong>${state.trainings.length}</strong></div><div class="card kpi"><span>Assiduidade</span><strong>${rec.length ? Math.round((p / rec.length) * 100) : 0}%</strong></div><div class="card kpi"><span>Jogos</span><strong>${state.games.length}</strong></div></div>
- ${alerts.length ? `<div class="section"><h3>A acompanhar</h3></div><div class="list">${alerts.map((a) => `<div class="card insight ${a.level}"><strong>${a.icon} ${esc(a.title)}</strong><div class="muted">${esc(a.text)}</div></div>`).join("")}</div>` : ""}
- ${nextEventsHome()}
- <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid"><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="go('callup')">📋 Preparar convocatória</button><button class="btn btn-secondary" onclick="go('fees')">💶 Mensalidades</button><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('athletes')">👥 ${admin() ? "Gerir" : "Ver"} atletas</button><button class="btn btn-secondary" onclick="view='games';render()">🗺️ Jogos e sete inicial</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
+  const today = new Date().toISOString().slice(0, 10),
+    active = state.athletes.filter((a) => a.active),
+    events = allEvents(),
+    todayEvents = events.filter((e) => e.date === today),
+    nextEvent = events.find((e) => e.date > today),
+    planned = (state.plannedAbsences || []).filter(
+      (x) => x.active && x.date >= today,
+    ),
+    todayAbsences = planned.filter((x) => x.date === today),
+    lights = active.map((a) => ({ a, light: trafficLight(a.id) })),
+    green = lights.filter((x) => x.light.cls === "green").length,
+    yellow = lights.filter((x) => x.light.cls === "yellow").length,
+    red = lights.filter((x) => x.light.cls === "red").length,
+    attention = lights.filter((x) => x.light.cls !== "green").slice(0, 4),
+    lastTraining = [...state.trainings].sort((a, b) =>
+      String(b.date).localeCompare(String(a.date)),
+    )[0],
+    lastRecords = lastTraining
+      ? state.records.filter((r) => r.trainingId === lastTraining.id)
+      : [],
+    lastPresent = lastRecords.filter((r) => r.status === "Presente").length,
+    missingPhotos = active.filter((a) => !a.photoUrl).length,
+    missingNumbers = active.filter(
+      (a) => !a.redNumber || !a.whiteNumber,
+    ).length,
+    upcomingGames = state.games.filter((g) => g.date >= today),
+    gamesWithoutLineup = upcomingGames.filter(
+      (g) => !state.lineups.some((l) => l.gameId === g.id),
+    ).length,
+    currentMonth = today.slice(0, 7),
+    feesStarted = currentMonth >= (state.settings?.feeStartMonth || "2026-10"),
+    feeRows = active.map((a) => ({
+      a,
+      f: feeFor(a.id, currentMonth, seasonNow()),
+    })),
+    feesPaid = feeRows.filter((x) => x.f?.status === "Pago").length,
+    feesMissing = feesStarted
+      ? feeRows.filter((x) => feeStatus(x.f, currentMonth) === "Em falta")
+          .length
+      : 0;
+  const tasks = [
+    todayAbsences.length
+      ? {
+          icon: "📆",
+          text: `${todayAbsences.length} falta(s) antecipada(s) hoje`,
+          action: "go('absences')",
+        }
+      : null,
+    red + yellow
+      ? {
+          icon: "🚦",
+          text: `${red + yellow} atleta(s) a acompanhar`,
+          action: "go('dashboard')",
+        }
+      : null,
+    gamesWithoutLineup
+      ? {
+          icon: "🗺️",
+          text: `${gamesWithoutLineup} jogo(s) futuro(s) sem sete inicial`,
+          action: "view='games';render()",
+        }
+      : null,
+    admin() && feesMissing
+      ? {
+          icon: "💶",
+          text: `${feesMissing} mensalidade(s) em falta`,
+          action: "go('fees')",
+        }
+      : null,
+    admin() && missingPhotos
+      ? {
+          icon: "📷",
+          text: `${missingPhotos} atleta(s) sem fotografia`,
+          action: "go('athletes')",
+        }
+      : null,
+    admin() && missingNumbers
+      ? {
+          icon: "👕",
+          text: `${missingNumbers} atleta(s) com números de equipamento em falta`,
+          action: "go('athletes')",
+        }
+      : null,
+  ].filter(Boolean);
+  return `<section class="dashboard-hero"><div><span class="eyebrow">${new Date(today + "T12:00:00").toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" })}</span><h2>Olá, ${esc(user.name)}</h2><p>${todayEvents.length ? `${todayEvents.length} evento(s) marcado(s) para hoje.` : nextEvent ? `Próximo: ${esc(nextEvent.title)} em ${fmt(nextEvent.date)}.` : "Sem eventos futuros marcados."}</p></div><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button></section>
+  <div class="home-layout"><section><div class="section"><h3>Hoje e a seguir</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Calendário</button></div><div class="list">${todayEvents.length ? todayEvents.map(eventCard).join("") : nextEvent ? eventCard(nextEvent) : '<div class="card empty">Sem eventos agendados.</div>'}</div>
+  <div class="section"><h3>Estado da formação</h3></div><div class="status-grid"><button class="card status-card green" onclick="go('athletes')"><span>🟢 Normal</span><strong>${green}</strong></button><button class="card status-card yellow" onclick="go('dashboard')"><span>🟡 A acompanhar</span><strong>${yellow}</strong></button><button class="card status-card red" onclick="go('dashboard')"><span>🔴 Atenção</span><strong>${red}</strong></button></div>
+  ${attention.length ? `<div class="attention-list">${attention.map(({ a, light }) => `<button onclick="openAthlete('${a.id}')">${avatar(a)}<span><b>${esc(a.name)}</b><small>${esc(light.reasons[0] || light.label)}</small></span><i>${light.icon}</i></button>`).join("")}</div>` : ""}
+  <div class="section"><h3>Último treino</h3></div>${lastTraining ? `<div class="card last-training"><div><b>${fmt(lastTraining.date)}</b><span>${esc(lastTraining.group)}</span></div><div><strong>${lastPresent}/${lastRecords.length}</strong><span>presentes</span></div><div><strong>${lastRecords.length ? Math.round((lastPresent / lastRecords.length) * 100) : 0}%</strong><span>assiduidade</span></div></div>` : '<div class="card empty">Ainda sem treinos registados.</div>'}</section>
+  <aside><div class="section"><h3>Tarefas pendentes</h3><span class="task-count">${tasks.length}</span></div><div class="task-list">${tasks.map((t) => `<button class="card" onclick="${t.action}"><span>${t.icon}</span><b>${esc(t.text)}</b><i>›</i></button>`).join("") || '<div class="card all-good">✓ Não existem tarefas urgentes.</div>'}</div>
+  <div class="section"><h3>Faltas comunicadas</h3><button class="btn btn-small btn-ghost" onclick="go('absences')">Gerir</button></div><div class="card mini-summary"><strong>${planned.length}</strong><span>próximas</span><b>${todayAbsences.length} hoje</b></div>
+  <div class="section"><h3>Mensalidades</h3><button class="btn btn-small btn-ghost" onclick="go('fees')">Abrir</button></div>${feesStarted ? `<div class="card mini-summary"><strong>${feesPaid}/${active.length}</strong><span>pagas este mês</span><b class="${feesMissing ? "danger-text" : ""}">${feesMissing} em falta</b></div>` : '<div class="card mini-summary future"><strong>Outubro 2026</strong><span>início das mensalidades</span></div>'}</aside></div>
+  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="go('callup')">📋 Convocatória</button><button class="btn btn-secondary" onclick="view='games';render()">🗺️ Sete inicial</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
 }
 
 function absences() {

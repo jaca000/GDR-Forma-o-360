@@ -1,4 +1,4 @@
-# GDR Formação 360 — v9.2
+# GDR Formação 360 — v9.3
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -13,6 +13,9 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Faltas antecipadas comunicadas pelos pais, com atleta, data, motivo e observação.
 - O atleta com falta antecipada não aparece no Registo Express nessa data; a falta justificada é gravada automaticamente no histórico.
 - A falta antecipada pode ser cancelada se o atleta afinal conseguir comparecer, voltando imediatamente à lista do treino.
+- Novo painel inicial operacional: agenda de hoje/próximo evento, semáforo global, atletas a acompanhar, resumo do último treino, faltas comunicadas e mensalidades.
+- Lista de tarefas pendentes gerada automaticamente: faltas do dia, atletas em atenção, jogos sem sete inicial, mensalidades em falta, fotografias e números de equipamento por completar.
+- Conteúdo do painel adaptado ao perfil Admin ou Treinador.
 - Sete inicial visual e arrastável com foto, nome, número e equipamento vermelho/branco.
 - Semáforo explicado por assiduidade recente, comportamento, empenho e evolução.
 - Calendário com treinos, jogos, torneios, outros eventos e próximos eventos no início.
@@ -49,4 +52,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 6. Guarde uma convocatória e prepare o Sete inicial no histórico de jogos.
 7. Crie um Torneio no Calendário e confirme-o em Próximos eventos.
 
-Versão: **9.2.0**.
+Versão: **9.3.0**.

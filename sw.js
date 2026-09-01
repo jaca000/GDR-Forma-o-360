@@ -1,4 +1,4 @@
-const CACHE = "gdr-formacao-360-v9-2";
+const CACHE = "gdr-formacao-360-v9-3";
 const ASSETS = [
   "./",
   "./index.html",
