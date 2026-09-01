@@ -1,8 +1,15 @@
-# GDR Formação 360 — v10.1
+# GDR Formação 360 — v10.3
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Histórico de treinos clicável a partir do Calendário, do início e do Registo Express.
+- Resumo detalhado de cada treino com presenças, faltas, justificações, assiduidade, médias, avaliações, tags e observações por atleta.
+- O Admin pode eliminar um treino duplicado; os registos associados são removidos em conjunto após confirmação explícita.
+- Aviso antes de guardar outro treino do mesmo escalão no mesmo dia, reduzindo duplicações acidentais.
+- Gravação de todos os atletas do treino em bloco, reduzindo fortemente o tempo de espera à medida que o histórico cresce.
+- Botão Guardar bloqueado durante o envio para impedir duplos toques e registos repetidos.
 
 - Mensalidades de 10€/mês desde outubro de 2026, com prazo normal entre os dias 1 e 8.
 - Pago, Em falta, Isento ou Pendente; Numerário/MB Way; data, observação, totais e filtros.
@@ -36,7 +43,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v10.1 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v10.3 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -64,5 +71,6 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 7. Crie um Torneio no Calendário e confirme-o em Próximos eventos.
 8. Crie um Jogo ou Torneio no Calendário, abra a disponibilidade do respetivo escalão e confirme que a convocatória usa esse evento e exclui os indisponíveis.
 9. Abra Resumo semanal, confirme o email, imprima o PDF e teste Enviar agora.
+10. Abra um treino através do Calendário, confirme o resumo e verifique que o botão Eliminar aparece apenas ao Admin.
 
-Versão: **10.1.0**.
+Versão: **10.3.0**.

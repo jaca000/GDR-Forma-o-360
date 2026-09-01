@@ -1554,6 +1554,78 @@ button {
 .calendar-list {
   margin-top: 10px;
 }
+.training-history-card,
+.training-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.training-history-card {
+  cursor: pointer;
+}
+.training-history-card:hover {
+  border-color: var(--red);
+}
+.open-chevron {
+  margin-left: auto;
+  color: var(--red);
+  font-size: 28px;
+  line-height: 1;
+}
+.training-summary-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+  margin-bottom: 10px;
+}
+.training-summary-kpis .card {
+  text-align: center;
+  box-shadow: none;
+}
+.training-summary-kpis span,
+.training-summary-kpis strong {
+  display: block;
+}
+.training-summary-kpis span {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.training-summary-kpis strong {
+  margin-top: 5px;
+  font-size: 25px;
+}
+.training-averages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+.training-averages span,
+.training-averages b {
+  display: block;
+}
+.training-averages b {
+  margin-top: 4px;
+  font-size: 20px;
+}
+.training-note {
+  margin-top: 5px;
+  font-size: 11px;
+}
+.last-training-button {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.last-training-button i {
+  color: var(--red);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
 .calendar-event-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1693,6 +1765,13 @@ button {
   margin-top: -8px;
 }
 @media (max-width: 500px) {
+  .training-summary-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .training-summary-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
   .calendar-callup-card {
     grid-template-columns: 1fr;
   }

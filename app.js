@@ -19,9 +19,11 @@ let view = "home",
   draft = null,
   callupDraft = null,
   selectedAthleteId = null,
+  selectedTrainingId = null,
   feeDraft = null,
   lineupDraft = null;
 let availabilityDraft = null;
+let savingTraining = false;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s = "") =>
@@ -147,6 +149,7 @@ function go(v) {
   draft = null;
   callupDraft = null;
   selectedAthleteId = null;
+  selectedTrainingId = null;
   render();
 }
 function goBack() {
@@ -163,6 +166,12 @@ function goBack() {
   if (view === "athleteProfile") {
     view = "athletes";
     selectedAthleteId = null;
+    render();
+    return;
+  }
+  if (view === "trainingSummary") {
+    view = "calendar";
+    selectedTrainingId = null;
     render();
     return;
   }
@@ -384,7 +393,7 @@ function home() {
   <div class="home-layout"><section><div class="section"><h3>Hoje e a seguir</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Calendário</button></div><div class="list">${todayEvents.length ? todayEvents.map(eventCard).join("") : nextEvent ? eventCard(nextEvent) : '<div class="card empty">Sem eventos agendados.</div>'}</div>
   <div class="section"><h3>Estado da formação</h3></div><div class="status-grid"><button class="card status-card green" onclick="go('athletes')"><span>🟢 Normal</span><strong>${green}</strong></button><button class="card status-card yellow" onclick="go('dashboard')"><span>🟡 A acompanhar</span><strong>${yellow}</strong></button><button class="card status-card red" onclick="go('dashboard')"><span>🔴 Atenção</span><strong>${red}</strong></button></div>
   ${attention.length ? `<div class="attention-list">${attention.map(({ a, light }) => `<button onclick="openAthlete('${a.id}')">${avatar(a)}<span><b>${esc(a.name)}</b><small>${esc(light.reasons[0] || light.label)}</small></span><i>${light.icon}</i></button>`).join("")}</div>` : ""}
-  <div class="section"><h3>Último treino</h3></div>${lastTraining ? `<div class="card last-training"><div><b>${fmt(lastTraining.date)}</b><span>${esc(lastTraining.group)}</span></div><div><strong>${lastPresent}/${lastRecords.length}</strong><span>presentes</span></div><div><strong>${lastRecords.length ? Math.round((lastPresent / lastRecords.length) * 100) : 0}%</strong><span>assiduidade</span></div></div>` : '<div class="card empty">Ainda sem treinos registados.</div>'}</section>
+  <div class="section"><h3>Último treino</h3></div>${lastTraining ? `<button class="card last-training last-training-button" onclick="openTrainingSummary('${lastTraining.id}')"><div><b>${fmt(lastTraining.date)}</b><span>${esc(lastTraining.group)}</span></div><div><strong>${lastPresent}/${lastRecords.length}</strong><span>presentes</span></div><div><strong>${lastRecords.length ? Math.round((lastPresent / lastRecords.length) * 100) : 0}%</strong><span>assiduidade</span></div><i>Ver resumo ›</i></button>` : '<div class="card empty">Ainda sem treinos registados.</div>'}</section>
   <aside><div class="section"><h3>Tarefas pendentes</h3><span class="task-count">${tasks.length}</span></div><div class="task-list">${tasks.map((t) => `<button class="card" onclick="${t.action}"><span>${t.icon}</span><b>${esc(t.text)}</b><i>›</i></button>`).join("") || '<div class="card all-good">✓ Não existem tarefas urgentes.</div>'}</div>
   <div class="section"><h3>Faltas comunicadas</h3><button class="btn btn-small btn-ghost" onclick="go('absences')">Gerir</button></div><div class="card mini-summary"><strong>${planned.length}</strong><span>próximas</span><b>${todayAbsences.length} hoje</b></div>
   <div class="section"><h3>Mensalidades</h3><button class="btn btn-small btn-ghost" onclick="go('fees')">Abrir</button></div>${feesStarted ? `<div class="card mini-summary"><strong>${feesPaid}/${active.length}</strong><span>pagas este mês</span><b class="${feesMissing ? "danger-text" : ""}">${feesMissing} em falta</b></div>` : '<div class="card mini-summary future"><strong>Outubro 2026</strong><span>início das mensalidades</span></div>'}</aside></div>
@@ -602,7 +611,7 @@ function evolutionBars(id) {
 
 function training() {
   if (!draft)
-    return `<div class="section"><h3>Registo Express</h3><span class="pill red">⚡ Rápido</span></div><div class="card"><div class="field"><label>Escalão</label><select id="tg"><option>Benjamins</option><option>Traquinas</option><option>Todos</option></select></div><div class="muted" style="margin-bottom:11px">Todos começam como <b>Presentes · 4/4/4</b>. Altera só as exceções.</div><button class="btn btn-primary btn-block" onclick="startTraining()">⚡ Iniciar treino</button></div>`;
+    return `<div class="section"><h3>Registo Express</h3><span class="pill red">⚡ Rápido</span></div><div class="card"><div class="field"><label>Escalão</label><select id="tg"><option>Benjamins</option><option>Traquinas</option><option>Todos</option></select></div><div class="muted" style="margin-bottom:11px">Todos começam como <b>Presentes · 4/4/4</b>. Altera só as exceções.</div><button class="btn btn-primary btn-block" onclick="startTraining()">⚡ Iniciar treino</button></div><div class="section"><h3>Treinos recentes</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver todos</button></div><div class="list">${recentTrainingCards(5)}</div>`;
   const people = trainingPeople(),
     planned = plannedAbsencesForTraining(),
     c = counts(people);
@@ -615,7 +624,7 @@ function training() {
           })
           .join("")}</div>`
       : ""
-  }<div class="list">${people.map(trainingCard).join("")}</div><div class="sticky-save"><button class="btn btn-primary btn-block" onclick="saveTraining()">Guardar treino · ${c.p} presentes</button></div>`;
+  }<div class="list">${people.map(trainingCard).join("")}</div><div class="sticky-save"><button class="btn btn-primary btn-block" onclick="saveTraining()" ${savingTraining ? "disabled" : ""}>${savingTraining ? "A guardar treino…" : `Guardar treino · ${c.p} presentes`}</button></div>`;
 }
 function startTraining() {
   const n = new Date();
@@ -756,7 +765,20 @@ function toggleTag(id, t) {
   render();
 }
 async function saveTraining() {
+  if (savingTraining) return;
   try {
+    const duplicate = state.trainings.find(
+      (t) => t.date === draft.date && t.group === draft.group,
+    );
+    if (
+      duplicate &&
+      !confirm(
+        `Já existe um treino de ${draft.group} registado em ${fmt(draft.date)}. Queres mesmo guardar outro?`,
+      )
+    )
+      return;
+    savingTraining = true;
+    render();
     await api("saveTraining", {
       training: {
         id: draft.id,
@@ -765,16 +787,85 @@ async function saveTraining() {
         group: draft.group,
       },
       records: trainingPeople().map((a) => ({
-        id: uid("r"),
+        id: `r_${draft.id}_${a.id}`,
         athleteId: a.id,
         ...rec(a.id),
       })),
     });
     draft = null;
+    savingTraining = false;
     await refresh();
     view = "dashboard";
     render();
     toast("Treino guardado");
+  } catch (e) {
+    savingTraining = false;
+    render();
+    toast(e.message);
+  }
+}
+
+function recentTrainingCards(limit = 20) {
+  return (
+    [...state.trainings]
+      .sort((a, b) =>
+        String(b.date + b.time).localeCompare(String(a.date + a.time)),
+      )
+      .slice(0, limit)
+      .map((t) => trainingHistoryCard(t))
+      .join("") || '<div class="card empty">Ainda sem treinos registados.</div>'
+  );
+}
+function trainingHistoryCard(t) {
+  const records = state.records.filter((r) => r.trainingId === t.id),
+    present = records.filter((r) => r.status === "Presente").length;
+  return `<div class="card training-history-card" onclick="openTrainingSummary('${t.id}')"><div><strong>⚽ ${fmt(t.date)} · ${esc(t.time || "")}</strong><div class="muted">${esc(t.group)} · ${present}/${records.length} presentes</div></div><span class="open-chevron">›</span></div>`;
+}
+function openTrainingSummary(id) {
+  if (!state.trainings.some((t) => t.id === id)) return;
+  selectedTrainingId = id;
+  view = "trainingSummary";
+  render();
+}
+function trainingSummary() {
+  const t = state.trainings.find((x) => x.id === selectedTrainingId);
+  if (!t) return '<div class="card empty">Treino não encontrado.</div>';
+  const records = state.records.filter((r) => r.trainingId === t.id),
+    present = records.filter((r) => r.status === "Presente"),
+    absent = records.filter((r) => r.status === "Falta"),
+    justified = records.filter((r) => r.status === "Justificada"),
+    average = (key) =>
+      present.length
+        ? (
+            present.reduce((sum, r) => sum + Number(r[key] || 0), 0) /
+            present.length
+          ).toFixed(1)
+        : "—";
+  return `<div class="section"><div><h3>Resumo do treino</h3><div class="muted">${fmt(t.date)} · ${esc(t.time || "Hora não indicada")} · ${esc(t.group)}</div></div>${admin() ? `<button class="btn btn-danger" onclick="deleteTraining('${t.id}')">Eliminar treino</button>` : ""}</div><div class="training-summary-kpis"><div class="card"><span>Presentes</span><strong>${present.length}</strong></div><div class="card"><span>Faltas</span><strong>${absent.length}</strong></div><div class="card"><span>Justificadas</span><strong>${justified.length}</strong></div><div class="card"><span>Assiduidade</span><strong>${records.length ? Math.round((present.length / records.length) * 100) : 0}%</strong></div></div><div class="card training-averages"><span>Atitude <b>${average("attitude")}</b></span><span>Empenho <b>${average("effort")}</b></span><span>Comportamento <b>${average("behavior")}</b></span></div><div class="section"><h3>Atletas</h3></div><div class="list">${
+    records
+      .map((r) => {
+        const a = state.athletes.find((x) => x.id === r.athleteId);
+        return `<div class="card training-summary-row">${a ? avatar(a) : ""}<div class="grow"><div class="absence-name"><strong>${esc(a?.name || "Atleta removido")}</strong>${a ? groupBadge(a.group) : ""}</div><div class="muted">${esc(r.status)}${r.absenceReason ? ` · ${esc(r.absenceReason)}` : ""}</div>${r.note ? `<div class="training-note">${esc(r.note)}</div>` : ""}${r.tags?.length ? `<div class="history-tags">${r.tags.map((tag) => `<span>${esc(tag)}</span>`).join("")}</div>` : ""}</div>${r.status === "Presente" ? `<div class="mini-score">A ${r.attitude} · E ${r.effort} · C ${r.behavior}</div>` : ""}</div>`;
+      })
+      .join("") ||
+    '<div class="card empty">Este treino não tem registos de atletas.</div>'
+  }</div>`;
+}
+async function deleteTraining(id) {
+  if (
+    !admin() ||
+    !confirm(
+      "Eliminar este treino? As presenças, avaliações, observações e tags deste treino também serão eliminadas. Esta ação não pode ser anulada.",
+    )
+  )
+    return;
+  try {
+    await api("deleteTraining", { id });
+    await refresh();
+    selectedTrainingId = null;
+    view = "calendar";
+    render();
+    toast("Treino duplicado eliminado");
   } catch (e) {
     toast(e.message);
   }
@@ -1230,7 +1321,11 @@ function eventCard(e) {
           )
           .join("")}</div>`
       : "";
-  return `<div class="card event-row"><div class="event-date"><b>${new Date(e.date + "T12:00:00").getDate()}</b><span>${new Date(e.date + "T12:00:00").toLocaleDateString("pt-PT", { month: "short" }).toUpperCase()}</span></div><div class="grow"><strong>${icons[e.type] || "📌"} ${esc(e.title)}</strong><div class="muted">${esc(e.time || "Hora por definir")}${e.group ? ` · ${esc(e.group)}` : ""}${e.location ? ` · ${esc(e.location)}` : ""}</div>${gameActions}</div>${admin() && e.source === "manual" ? `<button class="btn btn-small btn-danger" onclick="deleteEvent('${e.id}')">Eliminar</button>` : ""}</div>`;
+  const trainingAction =
+    e.source === "training"
+      ? `<button class="btn btn-small btn-secondary" onclick="openTrainingSummary('${e.sourceId}')">Ver resumo</button>`
+      : "";
+  return `<div class="card event-row"><div class="event-date"><b>${new Date(e.date + "T12:00:00").getDate()}</b><span>${new Date(e.date + "T12:00:00").toLocaleDateString("pt-PT", { month: "short" }).toUpperCase()}</span></div><div class="grow"><strong>${icons[e.type] || "📌"} ${esc(e.title)}</strong><div class="muted">${esc(e.time || "Hora por definir")}${e.group ? ` · ${esc(e.group)}` : ""}${e.location ? ` · ${esc(e.location)}` : ""}</div>${gameActions}</div>${trainingAction}${admin() && e.source === "manual" ? `<button class="btn btn-small btn-danger" onclick="deleteEvent('${e.id}')">Eliminar</button>` : ""}</div>`;
 }
 function calendar() {
   const filter = $("eventFilter")?.value || "Todos",
@@ -1835,6 +1930,7 @@ function render() {
   else if (view === "athletes") b = athletes();
   else if (view === "athleteProfile") b = athleteProfile();
   else if (view === "training") b = training();
+  else if (view === "trainingSummary") b = trainingSummary();
   else if (view === "dashboard") b = dashboard();
   else if (view === "callup") b = callup();
   else if (view === "fees") b = fees();
