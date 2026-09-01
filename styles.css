@@ -1293,6 +1293,49 @@ button {
   align-items: center;
   gap: 10px;
 }
+.absence-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.absence-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+}
+.absence-summary .card {
+  box-shadow: none;
+  text-align: center;
+}
+.absence-summary span,
+.absence-summary strong {
+  display: block;
+}
+.absence-summary span {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.absence-summary strong {
+  margin-top: 5px;
+  font-size: 27px;
+}
+.absence-summary .total {
+  background: #f0f1f3;
+}
+.absence-summary .traquinas {
+  background: #fff1d8;
+  color: #8b5900;
+}
+.absence-summary .benjamins {
+  background: #e8f1ff;
+  color: #2459a9;
+}
+.absence-summary .mixed {
+  background: #eee9ff;
+  color: #6741b5;
+}
 .planned-note {
   display: flex;
   flex-direction: column;
@@ -1359,6 +1402,22 @@ button {
   margin-top: -8px;
 }
 @media (max-width: 500px) {
+  .absence-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .absence-summary .card {
+    padding: 10px 5px;
+  }
+  .absence-summary span {
+    font-size: 8px;
+  }
+  .absence-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .absence-row .grow {
+    min-width: 180px;
+  }
   .dashboard-hero {
     align-items: flex-start;
     padding: 18px;

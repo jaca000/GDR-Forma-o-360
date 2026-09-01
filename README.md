@@ -1,4 +1,4 @@
-# GDR Formação 360 — v9.3
+# GDR Formação 360 — v9.4
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -16,6 +16,8 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Novo painel inicial operacional: agenda de hoje/próximo evento, semáforo global, atletas a acompanhar, resumo do último treino, faltas comunicadas e mensalidades.
 - Lista de tarefas pendentes gerada automaticamente: faltas do dia, atletas em atenção, jogos sem sete inicial, mensalidades em falta, fotografias e números de equipamento por completar.
 - Conteúdo do painel adaptado ao perfil Admin ou Treinador.
+- Na lista de faltas antecipadas, cada atleta apresenta imediatamente o badge do escalão: Traquinas, Benjamins ou misto.
+- Resumo visual das próximas faltas com contagem total e separação por Traquinas e Benjamins.
 - Sete inicial visual e arrastável com foto, nome, número e equipamento vermelho/branco.
 - Semáforo explicado por assiduidade recente, comportamento, empenho e evolução.
 - Calendário com treinos, jogos, torneios, outros eventos e próximos eventos no início.
@@ -52,4 +54,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 6. Guarde uma convocatória e prepare o Sete inicial no histórico de jogos.
 7. Crie um Torneio no Calendário e confirme-o em Próximos eventos.
 
-Versão: **9.3.0**.
+Versão: **9.4.0**.

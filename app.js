@@ -382,7 +382,12 @@ function absences() {
   const today = new Date().toISOString().slice(0, 10),
     upcoming = (state.plannedAbsences || [])
       .filter((x) => x.active && x.date >= today)
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .sort((a, b) => a.date.localeCompare(b.date)),
+    groupOf = (absence) =>
+      state.athletes.find((a) => a.id === absence.athleteId)?.group || "",
+    traquinas = upcoming.filter((x) => groupOf(x) === "Traquinas").length,
+    benjamins = upcoming.filter((x) => groupOf(x) === "Benjamins").length,
+    mixed = upcoming.filter((x) => groupOf(x) === "Traquinas/Benjamins").length;
   return `<div class="section"><div><h3>Faltas antecipadas</h3><div class="muted">Para ausências comunicadas pelos pais antes do treino.</div></div></div><div class="card"><div class="field"><label>Atleta</label><select id="paa">${sortName(
     state.athletes.filter((a) => a.active),
   )
@@ -392,11 +397,11 @@ function absences() {
     )
     .join(
       "",
-    )}</select></div><div class="form2"><div class="field"><label>Data da falta</label><input id="pad" type="date" min="${today}" value="${today}"></div><div class="field"><label>Motivo</label><select id="par"><option>Doença</option><option>Escola</option><option>Família</option><option>Outro</option></select></div></div><div class="field"><label>Observação opcional</label><textarea id="pan" placeholder="Informação comunicada pelos pais"></textarea></div><button class="btn btn-primary btn-block" onclick="savePlannedAbsence()">Registar falta antecipada</button></div><div class="section"><h3>Próximas faltas comunicadas</h3></div><div class="list">${
+    )}</select></div><div class="form2"><div class="field"><label>Data da falta</label><input id="pad" type="date" min="${today}" value="${today}"></div><div class="field"><label>Motivo</label><select id="par"><option>Doença</option><option>Escola</option><option>Família</option><option>Outro</option></select></div></div><div class="field"><label>Observação opcional</label><textarea id="pan" placeholder="Informação comunicada pelos pais"></textarea></div><button class="btn btn-primary btn-block" onclick="savePlannedAbsence()">Registar falta antecipada</button></div><div class="section"><h3>Resumo das próximas faltas</h3></div><div class="absence-summary"><div class="card total"><span>Total</span><strong>${upcoming.length}</strong></div><div class="card traquinas"><span>Traquinas</span><strong>${traquinas}</strong></div><div class="card benjamins"><span>Benjamins</span><strong>${benjamins}</strong></div>${mixed ? `<div class="card mixed"><span>Misto</span><strong>${mixed}</strong></div>` : ""}</div><div class="section"><h3>Próximas faltas comunicadas</h3></div><div class="list">${
     upcoming
       .map((x) => {
         const a = state.athletes.find((p) => p.id === x.athleteId);
-        return `<div class="card absence-row">${a ? avatar(a) : ""}<div class="grow"><strong>${esc(a?.name || "Atleta")}</strong><div>${fmt(x.date)} · ${esc(x.reason)}</div>${x.note ? `<div class="muted">${esc(x.note)}</div>` : ""}</div><button class="btn btn-small btn-danger" onclick="deletePlannedAbsence('${x.id}')">Cancelar</button></div>`;
+        return `<div class="card absence-row">${a ? avatar(a) : ""}<div class="grow"><div class="absence-name"><strong>${esc(a?.name || "Atleta")}</strong>${a ? groupBadge(a.group) : ""}</div><div>${fmt(x.date)} · ${esc(x.reason)}</div>${x.note ? `<div class="muted">${esc(x.note)}</div>` : ""}</div><button class="btn btn-small btn-danger" onclick="deletePlannedAbsence('${x.id}')">Cancelar</button></div>`;
       })
       .join("") ||
     '<div class="card empty">Não existem faltas antecipadas registadas.</div>'
