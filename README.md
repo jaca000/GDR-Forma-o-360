@@ -1,4 +1,4 @@
-# GDR Formação 360 — v10.3
+# GDR Formação 360 — v10.4
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -10,6 +10,8 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Aviso antes de guardar outro treino do mesmo escalão no mesmo dia, reduzindo duplicações acidentais.
 - Gravação de todos os atletas do treino em bloco, reduzindo fortemente o tempo de espera à medida que o histórico cresce.
 - Botão Guardar bloqueado durante o envio para impedir duplos toques e registos repetidos.
+- Correção automática dos registos antigos duplicados: fica apenas o registo mais recente de cada atleta em cada treino.
+- A leitura da app ignora imediatamente duplicações antigas, evitando atletas repetidos e cálculos de assiduidade incorretos.
 
 - Mensalidades de 10€/mês desde outubro de 2026, com prazo normal entre os dias 1 e 8.
 - Pago, Em falta, Isento ou Pendente; Numerário/MB Way; data, observação, totais e filtros.
@@ -43,12 +45,12 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v10.3 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v10.4 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta apenas folhas/colunas em falta, sem limpar ou eliminar linhas. Cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES` e `GAME_AVAILABILITY`; atletas, fotos, treinos, registos e convocatórias existentes são preservados. Também cria os alertas das mensalidades e o envio automático do resumo semanal.
+`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Na v10.4, remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES` e `GAME_AVAILABILITY`, os alertas das mensalidades e o envio automático do resumo semanal.
 
 ## Upload no GitHub
 
@@ -73,4 +75,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 9. Abra Resumo semanal, confirme o email, imprima o PDF e teste Enviar agora.
 10. Abra um treino através do Calendário, confirme o resumo e verifique que o botão Eliminar aparece apenas ao Admin.
 
-Versão: **10.3.0**.
+Versão: **10.4.0**.
