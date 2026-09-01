@@ -1,4 +1,4 @@
-# GDR Formação 360 — v10
+# GDR Formação 360 — v10.1
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -18,8 +18,10 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Conteúdo do painel adaptado ao perfil Admin ou Treinador.
 - Na lista de faltas antecipadas, cada atleta apresenta imediatamente o badge do escalão: Traquinas, Benjamins ou misto.
 - Resumo visual das próximas faltas com contagem total e separação por Traquinas e Benjamins.
-- Disponibilidade por jogo com estados Disponível, Indisponível e Sem resposta, observação e totais imediatos.
-- Fluxo integrado: criar jogo → recolher disponibilidade → gerar convocatória → preparar sete inicial.
+- Disponibilidade diretamente nos jogos e torneios já existentes no Calendário, com estados Disponível, Indisponível e Sem resposta, observação e totais imediatos.
+- Disponibilidade independente por escalão; num evento para Todos, Traquinas e Benjamins têm respostas e totais separados.
+- Fluxo integrado sem duplicações: Calendário → disponibilidade por escalão → convocatória → sete inicial.
+- Ao guardar a convocatória, o jogo fica no histórico interno sem criar uma cópia visual no Calendário.
 - A sugestão de convocatória dá prioridade aos disponíveis, considera os atletas sem resposta e exclui os indisponíveis.
 - Aviso e bloqueio de atletas indisponíveis na convocatória.
 - Resumo semanal completo, navegável por semana e separado por Traquinas e Benjamins: treinos, jogos, assiduidade, faltas, empenho, comportamento, destaques e próxima semana.
@@ -34,7 +36,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v9 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v10.1 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -60,7 +62,7 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 5. Marque uma mensalidade como paga, confirme o número automático e imprima o comprovativo interno.
 6. Guarde uma convocatória e prepare o Sete inicial no histórico de jogos.
 7. Crie um Torneio no Calendário e confirme-o em Próximos eventos.
-8. Crie um jogo, registe Disponível/Indisponível/Sem resposta e confirme que a sugestão da convocatória exclui os indisponíveis.
+8. Crie um Jogo ou Torneio no Calendário, abra a disponibilidade do respetivo escalão e confirme que a convocatória usa esse evento e exclui os indisponíveis.
 9. Abra Resumo semanal, confirme o email, imprima o PDF e teste Enviar agora.
 
-Versão: **10.0.0**.
+Versão: **10.1.0**.

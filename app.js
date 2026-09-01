@@ -131,7 +131,7 @@ function nav() {
     ["training", "⚽", "Treino"],
     ["fees", "€", "Mensalidades"],
     ["calendar", "📅", "Calendário"],
-      ["weekly", "📊", "Semana"],
+    ["weekly", "📊", "Semana"],
   ]
     .map(
       ([v, i, t]) =>
@@ -952,11 +952,14 @@ function weeklyData(start) {
 function weekly() {
   const start = $("weeklyStart")?.value || mondayOf(),
     data = weeklyData(start),
-    nextGame = [...state.games]
-      .filter((g) => g.date > data.end)
-      .sort((a, b) => a.date.localeCompare(b.date))[0],
-    av = nextGame ? availabilityCounts(nextGame.id, nextGame.group) : null;
-  return `<div class="section"><div><h3>Resumo semanal</h3><div class="muted">Uma leitura rápida da semana da formação.</div></div><button class="btn btn-secondary" onclick="printWeeklySummary()">🖨️ PDF / Imprimir</button></div>${admin() ? `<div class="card weekly-email"><div class="field"><label>Envio automático à segunda-feira</label><div class="inline-field"><input id="weeklyEmail" type="email" value="${esc(state.settings?.weeklySummaryEmail || "")}" placeholder="nome@exemplo.pt"><button class="btn btn-primary" onclick="saveWeeklySettings()">Guardar email</button><button class="btn btn-secondary" onclick="sendWeeklyNow()">Enviar agora</button></div><div class="muted">O resumo da semana anterior é enviado automaticamente todas as segundas-feiras de manhã.</div></div></div>` : ""}<div class="card week-picker"><button class="btn btn-ghost" onclick="changeWeek(-7)">← Semana anterior</button><div><label>Semana com início em</label><input id="weeklyStart" type="date" value="${start}" onchange="render()"></div><button class="btn btn-ghost" onclick="changeWeek(7)">Semana seguinte →</button></div><div class="weekly-hero"><div><span>${fmt(data.start)} — ${fmt(data.end)}</span><strong>${data.attendance}%</strong><b>Assiduidade global</b></div><div><strong>${data.trainings.length}</strong><b>Treinos</b></div><div><strong>${data.games.length}</strong><b>Jogos</b></div><div><strong>${data.planned.length}</strong><b>Faltas antecipadas</b></div></div><div class="section"><h3>Resumo por escalão</h3></div><div class="weekly-groups">${data.groupData.map((g) => `<div class="card weekly-group ${g.group.toLowerCase()}"><div class="weekly-group-head"><h3>${esc(g.group)}</h3><strong>${g.attendance}%</strong></div><div class="weekly-metrics"><span><b>${g.athletes}</b> atletas</span><span><b>${g.present}</b> presenças</span><span><b>${g.absences}</b> faltas</span><span><b>${g.effort}</b> empenho</span><span><b>${g.behavior}</b> comportamento</span></div></div>`).join("")}</div><div class="weekly-columns"><div><div class="section"><h3>Atividade da semana</h3></div><div class="list">${data.trainings.map((t) => `<div class="card compact-row"><b>⚽ ${fmt(t.date)}</b><span>${esc(t.group)} · ${esc(t.time || "")}</span></div>`).join("")}${data.games.map((g) => `<div class="card compact-row"><b>🏟️ ${fmt(g.date)}</b><span>GDR × ${esc(g.opponent)} · ${esc(g.group)}</span></div>`).join("") || '<div class="card empty">Sem atividade registada nesta semana.</div>'}</div></div><div><div class="section"><h3>Destaques e próxima semana</h3></div><div class="card weekly-tags">${data.topTags.length ? data.topTags.map(([tag, n]) => `<span>${esc(tag)} <b>${n}</b></span>`).join("") : '<div class="empty">Sem destaques registados.</div>'}</div><div class="list next-week">${data.nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos na próxima semana.</div>'}</div>${nextGame ? `<div class="card next-game-availability"><b>Disponibilidade · próximo jogo</b><span>GDR × ${esc(nextGame.opponent)} · ${fmt(nextGame.date)}</span><div><i class="available">✅ ${av.available}</i><i class="unavailable">❌ ${av.unavailable}</i><i class="no-answer">❔ ${av.noAnswer}</i></div><button class="btn btn-small btn-secondary" onclick="openAvailability('${nextGame.id}')">Atualizar disponibilidade</button></div>` : ""}</div></div>`;
+    nextGame = availabilityCalendarEvents().find((e) => e.date > data.end),
+    nextGroup = nextGame
+      ? nextGame.group === "Todos"
+        ? "Traquinas"
+        : nextGame.group
+      : "",
+    av = nextGame ? availabilityCounts(nextGame.id, nextGroup) : null;
+  return `<div class="section"><div><h3>Resumo semanal</h3><div class="muted">Uma leitura rápida da semana da formação.</div></div><button class="btn btn-secondary" onclick="printWeeklySummary()">🖨️ PDF / Imprimir</button></div>${admin() ? `<div class="card weekly-email"><div class="field"><label>Envio automático à segunda-feira</label><div class="inline-field"><input id="weeklyEmail" type="email" value="${esc(state.settings?.weeklySummaryEmail || "")}" placeholder="nome@exemplo.pt"><button class="btn btn-primary" onclick="saveWeeklySettings()">Guardar email</button><button class="btn btn-secondary" onclick="sendWeeklyNow()">Enviar agora</button></div><div class="muted">O resumo da semana anterior é enviado automaticamente todas as segundas-feiras de manhã.</div></div></div>` : ""}<div class="card week-picker"><button class="btn btn-ghost" onclick="changeWeek(-7)">← Semana anterior</button><div><label>Semana com início em</label><input id="weeklyStart" type="date" value="${start}" onchange="render()"></div><button class="btn btn-ghost" onclick="changeWeek(7)">Semana seguinte →</button></div><div class="weekly-hero"><div><span>${fmt(data.start)} — ${fmt(data.end)}</span><strong>${data.attendance}%</strong><b>Assiduidade global</b></div><div><strong>${data.trainings.length}</strong><b>Treinos</b></div><div><strong>${data.games.length}</strong><b>Jogos</b></div><div><strong>${data.planned.length}</strong><b>Faltas antecipadas</b></div></div><div class="section"><h3>Resumo por escalão</h3></div><div class="weekly-groups">${data.groupData.map((g) => `<div class="card weekly-group ${g.group.toLowerCase()}"><div class="weekly-group-head"><h3>${esc(g.group)}</h3><strong>${g.attendance}%</strong></div><div class="weekly-metrics"><span><b>${g.athletes}</b> atletas</span><span><b>${g.present}</b> presenças</span><span><b>${g.absences}</b> faltas</span><span><b>${g.effort}</b> empenho</span><span><b>${g.behavior}</b> comportamento</span></div></div>`).join("")}</div><div class="weekly-columns"><div><div class="section"><h3>Atividade da semana</h3></div><div class="list">${data.trainings.map((t) => `<div class="card compact-row"><b>⚽ ${fmt(t.date)}</b><span>${esc(t.group)} · ${esc(t.time || "")}</span></div>`).join("")}${data.games.map((g) => `<div class="card compact-row"><b>🏟️ ${fmt(g.date)}</b><span>GDR × ${esc(g.opponent)} · ${esc(g.group)}</span></div>`).join("") || '<div class="card empty">Sem atividade registada nesta semana.</div>'}</div></div><div><div class="section"><h3>Destaques e próxima semana</h3></div><div class="card weekly-tags">${data.topTags.length ? data.topTags.map(([tag, n]) => `<span>${esc(tag)} <b>${n}</b></span>`).join("") : '<div class="empty">Sem destaques registados.</div>'}</div><div class="list next-week">${data.nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos na próxima semana.</div>'}</div>${nextGame ? `<div class="card next-game-availability"><b>Disponibilidade · próximo evento</b><span>${esc(nextGame.title)} · ${fmt(nextGame.date)} · ${esc(nextGroup)}</span><div><i class="available">✅ ${av.available}</i><i class="unavailable">❌ ${av.unavailable}</i><i class="no-answer">❔ ${av.noAnswer}</i></div><button class="btn btn-small btn-secondary" onclick="openAvailability('${nextGame.id}','${nextGroup}')">Atualizar disponibilidade</button></div>` : ""}</div></div>`;
 }
 function changeWeek(days) {
   const current = $("weeklyStart")?.value || mondayOf();
@@ -1184,19 +1187,27 @@ function allEvents() {
       source: "training",
       sourceId: t.id,
     })),
-    games = state.games.map((g) => ({
-      id: "g_" + g.id,
-      type: "Jogo",
-      title: `GDR × ${g.opponent}`,
-      date: g.date,
-      time: g.time,
-      group: g.group,
-      location: g.location,
-      source: "game",
-      sourceId: g.id,
-    }));
+    games = state.games
+      .filter((g) => !String(g.id).startsWith("cal_"))
+      .map((g) => ({
+        id: "g_" + g.id,
+        type: "Jogo",
+        title: `GDR × ${g.opponent}`,
+        date: g.date,
+        time: g.time,
+        group: g.group,
+        location: g.location,
+        source: "game",
+        sourceId: g.id,
+      }));
   return [...manual, ...trainings, ...games].sort((a, b) =>
     (a.date + a.time).localeCompare(b.date + b.time),
+  );
+}
+function availabilityCalendarEvents() {
+  const today = new Date().toISOString().slice(0, 10);
+  return allEvents().filter(
+    (e) => e.date >= today && (e.type === "Jogo" || e.type === "Torneio"),
   );
 }
 function nextEventsHome() {
@@ -1208,7 +1219,18 @@ function nextEventsHome() {
 }
 function eventCard(e) {
   const icons = { Treino: "⚽", Jogo: "🏟️", Torneio: "🏆", Outro: "📌" };
-  return `<div class="card event-row"><div class="event-date"><b>${new Date(e.date + "T12:00:00").getDate()}</b><span>${new Date(e.date + "T12:00:00").toLocaleDateString("pt-PT", { month: "short" }).toUpperCase()}</span></div><div class="grow"><strong>${icons[e.type] || "📌"} ${esc(e.title)}</strong><div class="muted">${esc(e.time || "Hora por definir")}${e.group ? ` · ${esc(e.group)}` : ""}${e.location ? ` · ${esc(e.location)}` : ""}</div></div>${admin() && e.source === "manual" ? `<button class="btn btn-small btn-danger" onclick="deleteEvent('${e.id}')">Eliminar</button>` : ""}</div>`;
+  const groups = e.group === "Todos" ? ["Traquinas", "Benjamins"] : [e.group];
+  const gameActions =
+    e.type === "Jogo" || e.type === "Torneio"
+      ? `<div class="calendar-event-actions">${groups
+          .filter(Boolean)
+          .map(
+            (group) =>
+              `<button class="btn btn-small btn-secondary" onclick="openAvailability('${e.id}','${group}')">${esc(group)} · disponibilidade</button>`,
+          )
+          .join("")}</div>`
+      : "";
+  return `<div class="card event-row"><div class="event-date"><b>${new Date(e.date + "T12:00:00").getDate()}</b><span>${new Date(e.date + "T12:00:00").toLocaleDateString("pt-PT", { month: "short" }).toUpperCase()}</span></div><div class="grow"><strong>${icons[e.type] || "📌"} ${esc(e.title)}</strong><div class="muted">${esc(e.time || "Hora por definir")}${e.group ? ` · ${esc(e.group)}` : ""}${e.location ? ` · ${esc(e.location)}` : ""}</div>${gameActions}</div>${admin() && e.source === "manual" ? `<button class="btn btn-small btn-danger" onclick="deleteEvent('${e.id}')">Eliminar</button>` : ""}</div>`;
 }
 function calendar() {
   const filter = $("eventFilter")?.value || "Todos",
@@ -1256,28 +1278,25 @@ async function deleteEvent(id) {
 }
 
 function callup() {
-  if (!callupDraft)
-    return `<div class="section"><h3>Novo jogo</h3></div><div class="admin-note">Primeiro cria o jogo e regista a disponibilidade. Depois a app prepara a sugestão de convocatória apenas com quem pode comparecer.</div><div class="card"><div class="field"><label>Adversário</label><input id="opp"></div><div class="form2"><div class="field"><label>Data</label><input id="gd" type="date" value="${new Date().toISOString().slice(0, 10)}"></div><div class="field"><label>Hora</label><input id="gh" type="time"></div></div><div class="form2"><div class="field"><label>Escalão</label><select id="gg"><option>Benjamins</option><option>Traquinas</option></select></div><div class="field"><label>N.º jogadores para convocar</label><input id="gn" type="number" min="1" value="12"></div></div><div class="field"><label>Equipamento</label><select id="ge"><option value="Vermelho">🔴 Vermelho</option><option value="Branco">⚪ Branco</option></select></div><button class="btn btn-primary btn-block" onclick="createGameForAvailability()">Continuar para disponibilidade</button></div>`;
-  return callupEditor();
-}
-async function createGameForAvailability() {
-  try {
-    const game = {
-      id: uid("g"),
-      opponent: $("opp").value.trim() || "Adversário",
-      date: $("gd").value,
-      time: $("gh").value,
-      group: $("gg").value,
-      equipment: $("ge").value,
-      callupLimit: Number($("gn").value || 12),
-    };
-    await api("saveCallup", { game, callups: [] });
-    await refresh();
-    openAvailability(game.id);
-    toast("Jogo criado. Regista agora a disponibilidade.");
-  } catch (e) {
-    toast(e.message);
+  if (!callupDraft) {
+    const events = availabilityCalendarEvents();
+    return `<div class="section"><div><h3>Preparar convocatória</h3><div class="muted">Escolhe um jogo ou torneio já existente no Calendário.</div></div><button class="btn btn-secondary" onclick="go('calendar')">📅 Abrir calendário</button></div><div class="admin-note">A convocatória usa a disponibilidade registada no evento e no respetivo escalão.</div><div class="list">${
+      events
+        .map((e) => {
+          const groups =
+            e.group === "Todos" ? ["Traquinas", "Benjamins"] : [e.group];
+          return `<div class="card calendar-callup-card"><div><strong>${esc(e.title)}</strong><span>${fmt(e.date)} · ${esc(e.time || "Hora por definir")} · ${esc(e.type)}</span></div>${groups
+            .map((g) => {
+              const c = availabilityCounts(e.id, g);
+              return `<div class="calendar-callup-group"><b>${esc(g)}</b><span>✅ ${c.available} · ❌ ${c.unavailable} · ❔ ${c.noAnswer}</span><button class="btn btn-small btn-secondary" onclick="openAvailability('${e.id}','${g}')">Disponibilidade</button><button class="btn btn-small btn-primary" onclick="prepareCallupForEvent('${e.id}','${g}')">Convocar</button></div>`;
+            })
+            .join("")}</div>`;
+        })
+        .join("") ||
+      '<div class="card empty">Não existem jogos ou torneios futuros no Calendário. Cria primeiro o evento no Calendário.</div>'
+    }</div>`;
   }
+  return callupEditor();
 }
 function rotationBoost(a) {
   const recentGames = state.games
@@ -1328,19 +1347,32 @@ function prepareCallup() {
   };
   render();
 }
-function prepareCallupForGame(gameId) {
-  const g = state.games.find((x) => x.id === gameId);
-  if (!g) return;
-  const limit = Number(g.callupLimit || 12),
+function prepareCallupForEvent(eventId, group) {
+  const event = allEvents().find((x) => x.id === eventId);
+  if (!event) return;
+  const sourceGame =
+      event.source === "game"
+        ? state.games.find((x) => x.id === event.sourceId)
+        : null,
+    effectiveGroup =
+      group || (event.group === "Todos" ? "Traquinas" : event.group),
+    gameId =
+      sourceGame?.id ||
+      `cal_${String(event.id).replace(/[^a-zA-Z0-9_-]/g, "_")}_${effectiveGroup.toLowerCase()}`,
+    limit = Number(sourceGame?.callupLimit || 12),
     eligible = sortName(
       state.athletes.filter(
         (a) =>
           a.active &&
-          (a.group === g.group || a.group === "Traquinas/Benjamins"),
+          (a.group === effectiveGroup || a.group === "Traquinas/Benjamins"),
       ),
     ).map((a) => {
       const av = state.gameAvailability.find(
-        (x) => x.gameId === g.id && x.athleteId === a.id,
+        (x) =>
+          (x.eventId === event.id ||
+            (sourceGame && x.gameId === sourceGame.id)) &&
+          (!x.group || x.group === effectiveGroup) &&
+          x.athleteId === a.id,
       );
       return {
         ...a,
@@ -1360,12 +1392,14 @@ function prepareCallupForGame(gameId) {
       .slice(0, limit)
       .map((a) => a.id);
   callupDraft = {
-    id: g.id,
-    opponent: g.opponent,
-    date: g.date,
-    time: g.time,
-    group: g.group,
-    equipment: g.equipment || "Vermelho",
+    id: gameId,
+    calendarEventId: event.id,
+    opponent:
+      sourceGame?.opponent || event.title.replace(/^GDR\s*[×x-]\s*/i, ""),
+    date: event.date,
+    time: event.time,
+    group: effectiveGroup,
+    equipment: sourceGame?.equipment || "Vermelho",
     limit,
     eligible,
     selected: new Set(recommended),
@@ -1516,14 +1550,15 @@ function games() {
   const gg = [...state.games].sort((a, b) =>
     String(b.date).localeCompare(String(a.date)),
   );
-  return `<div class="section"><h3>Jogos, disponibilidade e equipa</h3><button class="btn btn-primary" onclick="go('callup')">+ Novo jogo</button></div><div class="list">${
+  return `<div class="section"><h3>Histórico de jogos e equipa</h3><button class="btn btn-primary" onclick="go('calendar')">📅 Calendário</button></div><div class="list">${
     gg
       .map((g) => {
         const cs = state.callups.filter(
           (c) => c.gameId === g.id && c.status === "Convocado",
         );
-        const av = availabilityCounts(g.id, g.group);
-        return `<div class="card game-card"><div><strong>${fmt(g.date)}</strong><div class="muted">${esc(g.group || "")} · ${esc(g.equipment || "")}</div></div><div class="grow"><b>vs ${esc(g.opponent)}</b><div class="game-availability-mini"><span class="available">✓ ${av.available}</span><span class="unavailable">× ${av.unavailable}</span><span class="no-answer">? ${av.noAnswer}</span><span>${cs.length} convocados</span></div></div><div class="game-actions"><button class="btn btn-small btn-secondary" onclick="openAvailability('${g.id}')">Disponibilidade</button><button class="btn btn-small btn-primary" onclick="prepareCallupForGame('${g.id}')">Convocar</button><button class="btn btn-small btn-ghost" onclick="openLineup('${g.id}')">🗺️ Sete</button></div></div>`;
+        const eventId = `g_${g.id}`,
+          av = availabilityCounts(eventId, g.group);
+        return `<div class="card game-card"><div><strong>${fmt(g.date)}</strong><div class="muted">${esc(g.group || "")} · ${esc(g.equipment || "")}</div></div><div class="grow"><b>vs ${esc(g.opponent)}</b><div class="game-availability-mini"><span class="available">✓ ${av.available}</span><span class="unavailable">× ${av.unavailable}</span><span class="no-answer">? ${av.noAnswer}</span><span>${cs.length} convocados</span></div></div><div class="game-actions"><button class="btn btn-small btn-secondary" onclick="openAvailability('${eventId}','${g.group}')">Disponibilidade</button><button class="btn btn-small btn-primary" onclick="prepareCallupForEvent('${eventId}','${g.group}')">Convocar</button><button class="btn btn-small btn-ghost" onclick="openLineup('${g.id}')">🗺️ Sete</button></div></div>`;
       })
       .join("") || '<div class="card empty">Ainda sem jogos guardados.</div>'
   }</div>`;
@@ -1536,19 +1571,28 @@ function availabilityIcon(status) {
       ? "❌"
       : "❔";
 }
-function gameAthletes(game) {
+function gameAthletes(group) {
   return sortName(
     state.athletes.filter(
       (a) =>
-        a.active &&
-        (a.group === game.group || a.group === "Traquinas/Benjamins"),
+        a.active && (a.group === group || a.group === "Traquinas/Benjamins"),
     ),
   );
 }
-function availabilityCounts(gameId, group) {
-  const g = state.games.find((x) => x.id === gameId) || { id: gameId, group },
-    athletes = gameAthletes(g),
-    rows = state.gameAvailability.filter((x) => x.gameId === gameId);
+function availabilityRows(event, group) {
+  return state.gameAvailability.filter(
+    (x) =>
+      (x.eventId === event.id ||
+        (event.source === "game" && x.gameId === event.sourceId)) &&
+      (!x.group || x.group === group),
+  );
+}
+function availabilityCounts(eventId, group) {
+  const event = allEvents().find((x) => x.id === eventId),
+    effectiveGroup =
+      group || (event?.group === "Todos" ? "Traquinas" : event?.group),
+    athletes = gameAthletes(effectiveGroup),
+    rows = event ? availabilityRows(event, effectiveGroup) : [];
   return {
     available: athletes.filter(
       (a) => rows.find((x) => x.athleteId === a.id)?.status === "Disponível",
@@ -1564,20 +1608,21 @@ function availabilityCounts(gameId, group) {
     total: athletes.length,
   };
 }
-function openAvailability(gameId) {
-  const game = state.games.find((x) => x.id === gameId);
-  if (!game) return;
+function openAvailability(eventId, group) {
+  const event = allEvents().find((x) => x.id === eventId);
+  if (!event || (event.type !== "Jogo" && event.type !== "Torneio")) return;
+  const effectiveGroup =
+      group || (event.group === "Todos" ? "Traquinas" : event.group),
+    savedRows = availabilityRows(event, effectiveGroup);
   const rows = {};
-  gameAthletes(game).forEach((a) => {
-    const saved = state.gameAvailability.find(
-      (x) => x.gameId === gameId && x.athleteId === a.id,
-    );
+  gameAthletes(effectiveGroup).forEach((a) => {
+    const saved = savedRows.find((x) => x.athleteId === a.id);
     rows[a.id] = {
       status: saved?.status || "Sem resposta",
       note: saved?.note || "",
     };
   });
-  availabilityDraft = { game, rows };
+  availabilityDraft = { event, group: effectiveGroup, rows };
   view = "availability";
   render();
 }
@@ -1586,13 +1631,14 @@ function setAvailability(athleteId, status) {
   render();
 }
 function availability() {
-  const g = availabilityDraft.game,
-    athletes = gameAthletes(g),
+  const event = availabilityDraft.event,
+    group = availabilityDraft.group,
+    athletes = gameAthletes(group),
     values = Object.values(availabilityDraft.rows),
     available = values.filter((x) => x.status === "Disponível").length,
     unavailable = values.filter((x) => x.status === "Indisponível").length,
     noAnswer = values.filter((x) => x.status === "Sem resposta").length;
-  return `<div class="section"><div><h3>Disponibilidade para o jogo</h3><div class="muted">GDR × ${esc(g.opponent)} · ${fmt(g.date)} · ${esc(g.group)}</div></div></div><div class="availability-summary"><div class="card available"><span>Disponíveis</span><strong>${available}</strong></div><div class="card unavailable"><span>Indisponíveis</span><strong>${unavailable}</strong></div><div class="card no-answer"><span>Sem resposta</span><strong>${noAnswer}</strong></div><div class="card total"><span>Total</span><strong>${athletes.length}</strong></div></div><div class="availability-toolbar"><button class="btn btn-small btn-secondary" onclick="setAllAvailability('Disponível')">Todos disponíveis</button><button class="btn btn-small btn-ghost" onclick="setAllAvailability('Sem resposta')">Limpar respostas</button></div><div class="list">${athletes
+  return `<div class="section"><div><h3>Disponibilidade</h3><div class="muted">${esc(event.title)} · ${fmt(event.date)} · ${esc(group)}</div></div>${event.group === "Todos" ? `<select onchange="openAvailability('${event.id}',this.value)"><option ${group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${group === "Benjamins" ? "selected" : ""}>Benjamins</option></select>` : ""}</div><div class="availability-summary"><div class="card available"><span>Disponíveis</span><strong>${available}</strong></div><div class="card unavailable"><span>Indisponíveis</span><strong>${unavailable}</strong></div><div class="card no-answer"><span>Sem resposta</span><strong>${noAnswer}</strong></div><div class="card total"><span>Total</span><strong>${athletes.length}</strong></div></div><div class="availability-toolbar"><button class="btn btn-small btn-secondary" onclick="setAllAvailability('Disponível')">Todos disponíveis</button><button class="btn btn-small btn-ghost" onclick="setAllAvailability('Sem resposta')">Limpar respostas</button></div><div class="list">${athletes
     .map((a) => {
       const row = availabilityDraft.rows[a.id];
       return `<div class="card availability-row ${row.status.replace(" ", "-").toLowerCase()}">${avatar(a)}<div class="grow"><div class="absence-name"><strong>${esc(a.name)}</strong>${groupBadge(a.group)}</div><div class="availability-buttons">${["Disponível", "Indisponível", "Sem resposta"].map((s) => `<button class="${row.status === s ? "active" : ""}" onclick="setAvailability('${a.id}','${s}')">${availabilityIcon(s)} ${s}</button>`).join("")}</div><input class="availability-note" value="${esc(row.note)}" placeholder="Observação opcional" onchange="availabilityDraft.rows['${a.id}'].note=this.value"></div></div>`;
@@ -1607,16 +1653,24 @@ function setAllAvailability(status) {
 }
 async function saveAvailability(prepare = false) {
   try {
-    const gameId = availabilityDraft.game.id,
+    const event = availabilityDraft.event,
+      group = availabilityDraft.group,
+      gameId = event.source === "game" ? event.sourceId : "",
       availability = Object.entries(availabilityDraft.rows).map(
         ([athleteId, row]) => ({ athleteId, ...row }),
       );
-    await api("saveGameAvailability", { gameId, availability });
+    await api("saveGameAvailability", {
+      eventId: event.id,
+      gameId,
+      group,
+      eventDate: event.date,
+      availability,
+    });
     await refresh();
     toast("Disponibilidade guardada");
-    if (prepare) prepareCallupForGame(gameId);
+    if (prepare) prepareCallupForEvent(event.id, group);
     else {
-      view = "games";
+      view = "calendar";
       availabilityDraft = null;
       render();
     }

@@ -1554,6 +1554,31 @@ button {
 .calendar-list {
   margin-top: 10px;
 }
+.calendar-event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.calendar-callup-card {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) repeat(2, minmax(250px, 1fr));
+  align-items: center;
+  gap: 12px;
+}
+.calendar-callup-card > div:first-child,
+.calendar-callup-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.calendar-callup-group {
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.calendar-callup-group .btn {
+  width: 100%;
+}
 .absence-row {
   display: flex;
   align-items: center;
@@ -1668,6 +1693,15 @@ button {
   margin-top: -8px;
 }
 @media (max-width: 500px) {
+  .calendar-callup-card {
+    grid-template-columns: 1fr;
+  }
+  .calendar-callup-group {
+    padding-top: 10px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
   .game-card {
     align-items: flex-start;
     flex-wrap: wrap;
