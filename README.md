@@ -1,8 +1,16 @@
-# GDR Formação 360 — v11.2
+# GDR Formação 360 — v12
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Portal dos Pais completamente renovado: cabeçalho com fotografia, nome, escalão e tendência de evolução.
+- Disponibilidades abertas em destaque no início, com resposta ou alteração imediata para o filho selecionado.
+- Painel familiar com assiduidade, treinos do mês, empenho, comportamento, evolução recente e próximos eventos.
+- Histórico dos treinos recentes, com acesso ao resumo individual do filho sem expor dados de outros atletas.
+- Resumo mensal criado automaticamente por IA apenas a partir dos registos dos treinos, sem intervenção ou validação da equipa técnica.
+- Linguagem adequada aos pais, sem comparações entre crianças, diagnósticos ou exposição das classificações numéricas.
+- Famílias com vários filhos podem alternar entre atletas no topo do portal; todos os dados continuam filtrados no servidor.
 
 - Portal dos Pais com contas próprias associadas pelo Admin a um ou mais filhos.
 - Filtragem obrigatória no servidor: cada família recebe exclusivamente dados dos filhos associados.
@@ -57,12 +65,21 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v11.2 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v12 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY` e `AVAILABILITY_REQUESTS`, os alertas das mensalidades e o envio automático do resumo semanal.
+`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY`, `AVAILABILITY_REQUESTS` e `AI_MONTHLY_SUMMARIES`, bem como os alertas e automatismos.
+
+## Resumos mensais por IA
+
+1. No Apps Script, abra **Definições do projeto → Propriedades do script**.
+2. Crie a propriedade `OPENAI_API_KEY` com uma chave da API da OpenAI. Nunca coloque a chave em `config.js`, no GitHub ou no navegador.
+3. Opcionalmente, crie `OPENAI_MODEL` para escolher outro modelo compatível; sem esta propriedade é usado `gpt-5.4-mini`.
+4. Execute novamente `setup()` para criar o acionador diário.
+
+Nos dias 1 a 3 de cada mês, o sistema gera uma vez o resumo do mês anterior. O utilizador `josealmanso` também dispõe da ação **Gerar resumos IA** no painel para testar ou gerar um mês específico. Sem chave configurada, os restantes módulos continuam a funcionar e o portal mostra que o resumo ainda não está disponível. A utilização da API pode ter custos conforme o modelo e o volume de geração.
 
 ## Upload no GitHub
 
@@ -89,5 +106,6 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 11. Em Utilizadores, crie uma conta Pai/Mãe, associe o respetivo filho e defina utilizador/PIN.
 12. Num jogo do Calendário, abra Disponibilidade, defina o prazo e use “Abrir pedido e copiar mensagem”.
 13. Cole a mensagem no grupo dos pais e teste o link com a conta familiar.
+14. Configure `OPENAI_API_KEY`, use **Gerar resumos IA** e confirme no Portal dos Pais o texto do mês selecionado.
 
-Versão: **11.2.0**.
+Versão: **12.0.0**.

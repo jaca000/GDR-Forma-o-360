@@ -14,6 +14,7 @@ let state = {
   plannedAbsences: [],
   gameAvailability: [],
   availabilityRequests: [],
+  monthlySummaries: [],
   settings: { feeAmount: 10 },
 };
 let view = "home",
@@ -25,6 +26,7 @@ let view = "home",
   lineupDraft = null;
 let availabilityDraft = null;
 let availabilityShareMessage = "";
+let selectedParentAthleteId = null;
 let savingTraining = false;
 
 const $ = (id) => document.getElementById(id);
@@ -412,27 +414,101 @@ function home() {
   <aside><div class="section"><h3>Tarefas pendentes</h3><span class="task-count">${tasks.length}</span></div><div class="task-list">${tasks.map((t) => `<button class="card" onclick="${t.action}"><span>${t.icon}</span><b>${esc(t.text)}</b><i>›</i></button>`).join("") || '<div class="card all-good">✓ Não existem tarefas urgentes.</div>'}</div>
   <div class="section"><h3>Faltas comunicadas</h3><button class="btn btn-small btn-ghost" onclick="go('absences')">Gerir</button></div><div class="card mini-summary"><strong>${planned.length}</strong><span>próximas</span><b>${todayAbsences.length} hoje</b></div>
   <div class="section"><h3>Mensalidades</h3><button class="btn btn-small btn-ghost" onclick="go('fees')">Abrir</button></div>${feesStarted ? `<div class="card mini-summary"><strong>${feesPaid}/${active.length}</strong><span>pagas este mês</span><b class="${feesMissing ? "danger-text" : ""}">${feesMissing} em falta</b></div>` : '<div class="card mini-summary future"><strong>Outubro 2026</strong><span>início das mensalidades</span></div>'}</aside></div>
-  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${availabilityOwner() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
+  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${availabilityOwner() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button><button class="btn btn-secondary" onclick="generateMonthlySummaries()">✨ Gerar resumos IA</button>' : ""}</div>`;
+}
+async function generateMonthlySummaries() {
+  const month = prompt(
+    "Mês dos resumos (AAAA-MM):",
+    new Date().toISOString().slice(0, 7),
+  );
+  if (!month) return;
+  try {
+    toast("A gerar os resumos mensais…");
+    const result = await api("generateMonthlySummaries", { month });
+    await refresh();
+    render();
+    toast(`${result.generated} resumo(s) gerado(s)`);
+  } catch (e) {
+    toast(e.message);
+  }
 }
 function parentHome() {
-  const today = new Date().toISOString().slice(0, 10),
+  const children = sortName(state.athletes || []);
+  if (!children.length)
+    return '<div class="card empty">Esta conta ainda não tem nenhum atleta associado.</div>';
+  if (!children.some((a) => a.id === selectedParentAthleteId))
+    selectedParentAthleteId = children[0].id;
+  const child = children.find((a) => a.id === selectedParentAthleteId),
+    today = new Date().toISOString().slice(0, 10),
+    records = athleteRecords(child.id)
+      .slice()
+      .sort((a, b) =>
+        trainingDate(b.trainingId).localeCompare(trainingDate(a.trainingId)),
+      ),
+    present = records.filter((r) => r.status === "Presente"),
+    attendance = records.length
+      ? Math.round((present.length / records.length) * 100)
+      : 0,
+    month = today.slice(0, 7),
+    monthRecords = records.filter(
+      (r) => trainingDate(r.trainingId).slice(0, 7) === month,
+    ),
+    trend = athleteTrend(child.id),
     requests = (state.availabilityRequests || [])
-      .filter((r) => r.status === "Aberto" && r.deadline >= today)
+      .filter(
+        (r) =>
+          r.status === "Aberto" &&
+          r.deadline >= today &&
+          (r.group === child.group || child.group === "Traquinas/Benjamins"),
+      )
       .map((r) => ({
         ...r,
         event: allEvents().find((e) => e.id === r.eventId),
       }))
       .filter((r) => r.event),
-    children = state.athletes || [];
-  return `<section class="parent-welcome"><span>Portal dos Pais</span><h2>${children.length === 1 ? esc(children[0].name) : "Os meus filhos"}</h2><p>Confirma disponibilidades, consulta o calendário e comunica faltas.</p></section><div class="section"><h3>Disponibilidades por responder</h3></div><div class="list">${
+    nextEvents = allEvents()
+      .filter(
+        (e) =>
+          e.date >= today &&
+          (e.group === "Todos" ||
+            e.group === child.group ||
+            child.group === "Traquinas/Benjamins"),
+      )
+      .slice(0, 5),
+    summary = (state.monthlySummaries || [])
+      .filter((s) => s.athleteId === child.id)
+      .sort((a, b) => b.month.localeCompare(a.month))[0],
+    avgValue = (key) =>
+      present.length
+        ? (
+            present.reduce((sum, r) => sum + Number(r[key] || 0), 0) /
+            present.length
+          ).toFixed(1)
+        : "—";
+  return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section><div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
     requests
       .map((r) => {
-        const c = availabilityCounts(r.eventId, r.group);
-        return `<div class="card parent-request"><div class="grow"><strong>${esc(r.event.title)}</strong><div class="muted">${fmt(r.event.date)} · ${esc(r.event.time || "Hora por definir")} · ${esc(r.group)}</div><span>Responder até ${fmt(r.deadline)}</span></div><div class="game-availability-mini"><span class="available">✓ ${c.available}</span><span class="no-answer">? ${c.noAnswer}</span></div><button class="btn btn-primary" onclick="openAvailability('${r.eventId}','${r.group}')">Responder</button></div>`;
+        const answer = (state.gameAvailability || []).find(
+            (x) =>
+              x.eventId === r.eventId &&
+              x.athleteId === child.id &&
+              x.group === r.group,
+          ),
+          status = answer?.status || "Sem resposta";
+        return `<div class="card parent-request ${status.replace(" ", "-").toLowerCase()}"><div class="grow"><strong>${esc(r.event.title)}</strong><div class="muted">${fmt(r.event.date)} · ${esc(r.event.time || "Hora por definir")} · ${esc(r.group)}</div><span>Prazo: ${fmt(r.deadline)}</span></div><b class="parent-answer">${availabilityIcon(status)} ${esc(status)}</b><button class="btn btn-primary" onclick="openAvailability('${r.eventId}','${r.group}')">${status === "Sem resposta" ? "Responder agora" : "Alterar resposta"}</button></div>`;
       })
       .join("") ||
-    '<div class="card empty">Não tens pedidos de disponibilidade pendentes.</div>'
-  }</div><div class="section"><h3>Acesso rápido</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div>`;
+    '<div class="card empty">Não existem disponibilidades abertas.</div>'
+  }</div><div class="section"><h3>Resumo mensal por IA</h3></div><div class="card ai-parent-summary">${summary ? `<div class="ai-summary-head"><span>✨ Gerado por IA</span><b>${new Date(summary.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</b></div><p>${esc(summary.text).replace(/\n/g, "<br>")}</p><small>Gerado automaticamente com base nos registos do atleta.</small>` : '<div class="empty"><b>Resumo ainda não disponível</b><span>Será gerado automaticamente no início do próximo mês, quando existirem dados suficientes.</span></div>'}</div><div class="section"><h3>Treinos recentes</h3><span>${records.length} registos</span></div><div class="list parent-trainings">${
+    records
+      .slice(0, 6)
+      .map((r) => {
+        const training = state.trainings.find((t) => t.id === r.trainingId);
+        return `<button class="card parent-training" onclick="openTrainingSummary('${r.trainingId}')"><div class="training-status ${(r.status || "").toLowerCase()}">${r.status === "Presente" ? "✓" : r.status === "Justificada" ? "J" : "×"}</div><div class="grow"><strong>${fmt(training?.date)}</strong><span>${esc(training?.group || child.group)} · ${esc(training?.time || "")}</span></div><b>${esc(r.status)}</b><i>›</i></button>`;
+      })
+      .join("") ||
+    '<div class="card empty">Ainda não existem treinos registados.</div>'
+  }</div></section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
 }
 
 function absences() {
