@@ -1643,6 +1643,20 @@ button {
   flex: 1;
   margin: 0;
 }
+.availability-message {
+  margin-bottom: 10px;
+  background: #f3fbf5;
+  border-color: #a9d8b4;
+}
+.availability-message > strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.availability-message textarea {
+  min-height: 190px;
+  margin-bottom: 9px;
+  background: #fff;
+}
 .parent-welcome {
   padding: 22px;
   border-radius: 18px;

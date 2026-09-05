@@ -1,4 +1,4 @@
-# GDR Formação 360 — v11
+# GDR Formação 360 — v11.2
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -8,6 +8,10 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Filtragem obrigatória no servidor: cada família recebe exclusivamente dados dos filhos associados.
 - Pedidos de disponibilidade abertos pelo Admin diretamente no jogo ou torneio do Calendário, com prazo de resposta.
 - Mensagem genérica gerada e copiada automaticamente para publicação no grupo de WhatsApp dos pais, sem API paga.
+- Após abrir o pedido, a mensagem fica sempre visível no ecrã; inclui botões separados para copiar ou abrir o WhatsApp, evitando bloqueios da área de transferência no telemóvel.
+- Apenas o utilizador exato `josealmanso` pode abrir, atualizar ou apagar pedidos de disponibilidade; a regra é validada também no servidor.
+- O menu, a lista e os dados de utilizadores são visíveis exclusivamente para `josealmanso`; só essa conta pode criar, editar, ativar ou desativar qualquer perfil.
+- Ao apagar um pedido, são eliminadas após confirmação as respostas associadas àquele evento e escalão.
 - Link direto para o Portal dos Pais, onde cada família responde Disponível/Indisponível e pode acrescentar observação.
 - Pais podem também consultar o calendário do escalão e comunicar ou cancelar faltas antecipadas dos próprios filhos.
 - Contas de pais não conseguem executar ações técnicas, administrativas ou consultar outros atletas, mesmo através da API.
@@ -53,7 +57,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v11 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v11.2 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -86,4 +90,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 12. Num jogo do Calendário, abra Disponibilidade, defina o prazo e use “Abrir pedido e copiar mensagem”.
 13. Cole a mensagem no grupo dos pais e teste o link com a conta familiar.
 
-Versão: **11.0.0**.
+Versão: **11.2.0**.

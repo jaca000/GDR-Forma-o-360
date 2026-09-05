@@ -24,6 +24,7 @@ let view = "home",
   feeDraft = null,
   lineupDraft = null;
 let availabilityDraft = null;
+let availabilityShareMessage = "";
 let savingTraining = false;
 
 const $ = (id) => document.getElementById(id);
@@ -44,6 +45,8 @@ const uid = (p) =>
 const fmt = (d) =>
   d ? new Date(d + "T12:00:00").toLocaleDateString("pt-PT") : "";
 const admin = () => user?.role === "admin";
+const availabilityOwner = () =>
+  String(user?.username || "").toLowerCase() === "josealmanso";
 const sortName = (arr) =>
   [...arr].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-PT", { sensitivity: "base" }),
@@ -409,7 +412,7 @@ function home() {
   <aside><div class="section"><h3>Tarefas pendentes</h3><span class="task-count">${tasks.length}</span></div><div class="task-list">${tasks.map((t) => `<button class="card" onclick="${t.action}"><span>${t.icon}</span><b>${esc(t.text)}</b><i>›</i></button>`).join("") || '<div class="card all-good">✓ Não existem tarefas urgentes.</div>'}</div>
   <div class="section"><h3>Faltas comunicadas</h3><button class="btn btn-small btn-ghost" onclick="go('absences')">Gerir</button></div><div class="card mini-summary"><strong>${planned.length}</strong><span>próximas</span><b>${todayAbsences.length} hoje</b></div>
   <div class="section"><h3>Mensalidades</h3><button class="btn btn-small btn-ghost" onclick="go('fees')">Abrir</button></div>${feesStarted ? `<div class="card mini-summary"><strong>${feesPaid}/${active.length}</strong><span>pagas este mês</span><b class="${feesMissing ? "danger-text" : ""}">${feesMissing} em falta</b></div>` : '<div class="card mini-summary future"><strong>Outubro 2026</strong><span>início das mensalidades</span></div>'}</aside></div>
-  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
+  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${availabilityOwner() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
 }
 function parentHome() {
   const today = new Date().toISOString().slice(0, 10),
@@ -1758,6 +1761,7 @@ function openAvailability(eventId, group) {
     };
   });
   availabilityDraft = { event, group: effectiveGroup, rows };
+  availabilityShareMessage = "";
   view = "availability";
   render();
 }
@@ -1776,7 +1780,7 @@ function availability() {
   const request = (state.availabilityRequests || []).find(
     (r) => r.eventId === event.id && r.group === group && r.status === "Aberto",
   );
-  return `<div class="section"><div><h3>Disponibilidade</h3><div class="muted">${esc(event.title)} · ${fmt(event.date)} · ${esc(group)}</div></div>${event.group === "Todos" && user?.role !== "parent" ? `<select onchange="openAvailability('${event.id}',this.value)"><option ${group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${group === "Benjamins" ? "selected" : ""}>Benjamins</option></select>` : ""}</div>${admin() ? `<div class="card availability-opening"><div class="field"><label>Prazo para os pais responderem</label><input id="availabilityDeadline" type="date" min="${new Date().toISOString().slice(0, 10)}" value="${request?.deadline || event.date}"></div><button class="btn btn-primary" onclick="openAvailabilityRequest()">${request ? "Atualizar pedido e copiar mensagem" : "Abrir pedido e copiar mensagem"}</button></div>` : request ? `<div class="admin-note">Responde até ${fmt(request.deadline)}.</div>` : ""}<div class="availability-summary"><div class="card available"><span>Disponíveis</span><strong>${available}</strong></div><div class="card unavailable"><span>Indisponíveis</span><strong>${unavailable}</strong></div><div class="card no-answer"><span>Sem resposta</span><strong>${noAnswer}</strong></div><div class="card total"><span>Total</span><strong>${athletes.length}</strong></div></div>${user?.role === "parent" ? "" : `<div class="availability-toolbar"><button class="btn btn-small btn-secondary" onclick="setAllAvailability('Disponível')">Todos disponíveis</button><button class="btn btn-small btn-ghost" onclick="setAllAvailability('Sem resposta')">Limpar respostas</button></div>`}<div class="list">${athletes
+  return `<div class="section"><div><h3>Disponibilidade</h3><div class="muted">${esc(event.title)} · ${fmt(event.date)} · ${esc(group)}</div></div>${event.group === "Todos" && user?.role !== "parent" ? `<select onchange="openAvailability('${event.id}',this.value)"><option ${group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${group === "Benjamins" ? "selected" : ""}>Benjamins</option></select>` : ""}</div>${availabilityOwner() ? `<div class="card availability-opening"><div class="field"><label>Prazo para os pais responderem</label><input id="availabilityDeadline" type="date" min="${new Date().toISOString().slice(0, 10)}" value="${request?.deadline || event.date}"></div><button class="btn btn-primary" onclick="openAvailabilityRequest()">${request ? "Atualizar pedido" : "Abrir pedido"}</button>${request ? `<button class="btn btn-danger" onclick="deleteAvailabilityRequest('${request.id}')">Apagar pedido</button>` : ""}</div>${availabilityShareMessage ? `<div class="card availability-message"><strong>Mensagem pronta para o grupo dos pais</strong><textarea id="availabilityShareText" readonly>${esc(availabilityShareMessage)}</textarea><div class="form2"><button class="btn btn-secondary" onclick="copyAvailabilityMessage()">📋 Copiar mensagem</button><button class="btn btn-primary" onclick="shareAvailabilityWhatsApp()">💬 Abrir WhatsApp</button></div></div>` : ""}` : request ? `<div class="admin-note">Pedido aberto até ${fmt(request.deadline)}. Apenas josealmanso pode alterá-lo ou apagá-lo.</div>` : ""}<div class="availability-summary"><div class="card available"><span>Disponíveis</span><strong>${available}</strong></div><div class="card unavailable"><span>Indisponíveis</span><strong>${unavailable}</strong></div><div class="card no-answer"><span>Sem resposta</span><strong>${noAnswer}</strong></div><div class="card total"><span>Total</span><strong>${athletes.length}</strong></div></div>${user?.role === "parent" ? "" : `<div class="availability-toolbar"><button class="btn btn-small btn-secondary" onclick="setAllAvailability('Disponível')">Todos disponíveis</button><button class="btn btn-small btn-ghost" onclick="setAllAvailability('Sem resposta')">Limpar respostas</button></div>`}<div class="list">${athletes
     .map((a) => {
       const row = availabilityDraft.rows[a.id];
       return `<div class="card availability-row ${row.status.replace(" ", "-").toLowerCase()}">${avatar(a)}<div class="grow"><div class="absence-name"><strong>${esc(a.name)}</strong>${groupBadge(a.group)}</div><div class="availability-buttons">${["Disponível", "Indisponível", "Sem resposta"].map((s) => `<button class="${row.status === s ? "active" : ""}" onclick="setAvailability('${a.id}','${s}')">${availabilityIcon(s)} ${s}</button>`).join("")}</div><input class="availability-note" value="${esc(row.note)}" placeholder="Observação opcional" onchange="availabilityDraft.rows['${a.id}'].note=this.value"></div></div>`;
@@ -1798,13 +1802,56 @@ async function openAvailabilityRequest() {
     await refresh();
     const link = `${location.origin}${location.pathname}?portal=pais`,
       message = `⚽ GDR Formação 360\n\nEstá aberta a confirmação de disponibilidade para ${event.title}, no dia ${fmt(event.date)}${event.time ? ` às ${event.time}` : ""}, escalão ${group}.\n\nPor favor, respondam até ${fmt(deadline)} através do Portal dos Pais:\n${link}`;
-    if (navigator.clipboard) await navigator.clipboard.writeText(message);
-    else window.prompt("Copie a mensagem para o grupo dos pais:", message);
-    toast("Pedido aberto e mensagem copiada");
+    availabilityShareMessage = message;
+    toast("Pedido aberto — mensagem pronta");
     render();
   } catch (e) {
     toast(e.message);
   }
+}
+async function deleteAvailabilityRequest(id) {
+  if (
+    !availabilityOwner() ||
+    !confirm(
+      "Apagar este pedido? As respostas de disponibilidade deste escalão também serão eliminadas.",
+    )
+  )
+    return;
+  try {
+    await api("deleteAvailabilityRequest", { id });
+    await refresh();
+    availabilityShareMessage = "";
+    openAvailability(availabilityDraft.event.id, availabilityDraft.group);
+    toast("Pedido de disponibilidade apagado");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function copyAvailabilityMessage() {
+  const field = $("availabilityShareText");
+  if (!field) return;
+  try {
+    if (navigator.clipboard && window.isSecureContext)
+      await navigator.clipboard.writeText(field.value);
+    else {
+      field.focus();
+      field.select();
+      document.execCommand("copy");
+    }
+    toast("Mensagem copiada");
+  } catch (e) {
+    field.focus();
+    field.select();
+    toast("Selecionámos a mensagem — mantém premido e escolhe Copiar");
+  }
+}
+function shareAvailabilityWhatsApp() {
+  const field = $("availabilityShareText");
+  if (!field) return;
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(field.value)}`,
+    "_blank",
+  );
 }
 function setAllAvailability(status) {
   Object.values(availabilityDraft.rows).forEach((x) => (x.status = status));
@@ -1944,8 +1991,7 @@ function printLineup() {
 }
 
 function users() {
-  if (!admin())
-    return '<div class="admin-note">Acesso exclusivo ao Administrador.</div>';
+  if (!availabilityOwner()) return "";
   return `<div class="section"><h3>Utilizadores e famílias</h3><button class="btn btn-primary" onclick="userForm()">+ Adicionar</button></div><div class="list">${state.users
     .map(
       (u) =>
@@ -1959,11 +2005,12 @@ function users() {
                   .join(" · ") || "Sem filhos associados"
               }</div>`
             : ""
-        }</div><div class="actions"><button class="btn btn-small btn-ghost" onclick="userForm('${u.id}')">Editar</button><button class="btn btn-small btn-danger" onclick="toggleUser('${u.id}',${!u.active})">${u.active ? "Desativar" : "Ativar"}</button></div></div>`,
+        }</div>${availabilityOwner() ? `<div class="actions"><button class="btn btn-small btn-ghost" onclick="userForm('${u.id}')">Editar</button><button class="btn btn-small btn-danger" onclick="toggleUser('${u.id}',${!u.active})">${u.active ? "Desativar" : "Ativar"}</button></div>` : ""}</div>`,
     )
     .join("")}</div>`;
 }
 function userForm(id = "") {
+  if (!availabilityOwner()) return;
   const u = id ? state.users.find((x) => x.id === id) : null;
   view = "userForm";
   $("app").innerHTML = shell(
