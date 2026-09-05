@@ -1,8 +1,16 @@
-# GDR Formação 360 — v10.4
+# GDR Formação 360 — v11
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Portal dos Pais com contas próprias associadas pelo Admin a um ou mais filhos.
+- Filtragem obrigatória no servidor: cada família recebe exclusivamente dados dos filhos associados.
+- Pedidos de disponibilidade abertos pelo Admin diretamente no jogo ou torneio do Calendário, com prazo de resposta.
+- Mensagem genérica gerada e copiada automaticamente para publicação no grupo de WhatsApp dos pais, sem API paga.
+- Link direto para o Portal dos Pais, onde cada família responde Disponível/Indisponível e pode acrescentar observação.
+- Pais podem também consultar o calendário do escalão e comunicar ou cancelar faltas antecipadas dos próprios filhos.
+- Contas de pais não conseguem executar ações técnicas, administrativas ou consultar outros atletas, mesmo através da API.
 
 - Histórico de treinos clicável a partir do Calendário, do início e do Registo Express.
 - Resumo detalhado de cada treino com presenças, faltas, justificações, assiduidade, médias, avaliações, tags e observações por atleta.
@@ -45,12 +53,12 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v10.4 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v11 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Na v10.4, remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES` e `GAME_AVAILABILITY`, os alertas das mensalidades e o envio automático do resumo semanal.
+`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY` e `AVAILABILITY_REQUESTS`, os alertas das mensalidades e o envio automático do resumo semanal.
 
 ## Upload no GitHub
 
@@ -74,5 +82,8 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 8. Crie um Jogo ou Torneio no Calendário, abra a disponibilidade do respetivo escalão e confirme que a convocatória usa esse evento e exclui os indisponíveis.
 9. Abra Resumo semanal, confirme o email, imprima o PDF e teste Enviar agora.
 10. Abra um treino através do Calendário, confirme o resumo e verifique que o botão Eliminar aparece apenas ao Admin.
+11. Em Utilizadores, crie uma conta Pai/Mãe, associe o respetivo filho e defina utilizador/PIN.
+12. Num jogo do Calendário, abra Disponibilidade, defina o prazo e use “Abrir pedido e copiar mensagem”.
+13. Cole a mensagem no grupo dos pais e teste o link com a conta familiar.
 
-Versão: **10.4.0**.
+Versão: **11.0.0**.

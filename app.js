@@ -13,6 +13,7 @@ let state = {
   lineups: [],
   plannedAbsences: [],
   gameAvailability: [],
+  availabilityRequests: [],
   settings: { feeAmount: 10 },
 };
 let view = "home",
@@ -96,7 +97,9 @@ function shirtNumber(a, equipment) {
 }
 
 function loginScreen(err = "") {
-  return `<div class="login-page"><div class="login-card"><img class="login-logo" src="logo-formacao-gdr.png"><h1>GDR Formação 360</h1><p>Área reservada à equipa técnica</p>${err ? `<div class="error">${esc(err)}</div>` : ""}<div class="field"><label>Utilizador</label><input id="lu" autocomplete="username"></div><div class="field"><label>PIN</label><input id="lp" class="pin" type="password" inputmode="numeric" maxlength="8"></div><button class="btn btn-primary btn-block" onclick="login()">Entrar</button></div></div>`;
+  const parentPortal =
+    new URLSearchParams(location.search).get("portal") === "pais";
+  return `<div class="login-page"><div class="login-card"><img class="login-logo" src="logo-formacao-gdr.png"><h1>GDR Formação 360</h1><p>${parentPortal ? "Portal dos Pais" : "Área reservada"}</p>${err ? `<div class="error">${esc(err)}</div>` : ""}<div class="field"><label>Utilizador</label><input id="lu" autocomplete="username"></div><div class="field"><label>PIN</label><input id="lp" class="pin" type="password" inputmode="numeric" maxlength="8"></div><button class="btn btn-primary btn-block" onclick="login()">Entrar</button></div></div>`;
 }
 async function login() {
   try {
@@ -109,7 +112,7 @@ async function login() {
     localStorage.setItem("gdr360_token", token);
     localStorage.setItem("gdr360_user", JSON.stringify(user));
     await refresh();
-    view = "home";
+    view = user.role === "parent" ? "parentHome" : "home";
     render();
   } catch (e) {
     $("app").innerHTML = loginScreen(e.message);
@@ -128,6 +131,8 @@ async function refresh() {
 }
 
 function nav() {
+  if (user?.role === "parent")
+    return `<nav class="nav parent-nav"><button class="${view === "parentHome" ? "active" : ""}" onclick="go('parentHome')"><span class="ico">⌂</span>Início</button><button class="${view === "absences" ? "active" : ""}" onclick="go('absences')"><span class="ico">📆</span>Faltas</button><button class="${view === "calendar" ? "active" : ""}" onclick="go('calendar')"><span class="ico">📅</span>Calendário</button></nav>`;
   return `<nav class="nav">${[
     ["home", "⌂", "Início"],
     ["training", "⚽", "Treino"],
@@ -142,7 +147,8 @@ function nav() {
     .join("")}</nav>`;
 }
 function shell(body) {
-  return `<div class="app"><header class="topbar"><div class="brand">${view !== "home" ? '<button class="back-btn" onclick="goBack()" aria-label="Voltar">←</button>' : ""}<img class="brand-logo" src="logo-formacao-gdr.png"><div class="brand-copy"><h1>${C.APP_NAME}</h1><small>${esc(user.name)}</small></div><span class="role">${admin() ? "Administrador" : "Treinador"}</span><button class="logout" onclick="logout()">Sair</button></div></header><main class="content">${body}</main>${nav()}</div>`;
+  const rootView = user?.role === "parent" ? "parentHome" : "home";
+  return `<div class="app"><header class="topbar"><div class="brand">${view !== rootView ? '<button class="back-btn" onclick="goBack()" aria-label="Voltar">←</button>' : ""}<img class="brand-logo" src="logo-formacao-gdr.png"><div class="brand-copy"><h1>${C.APP_NAME}</h1><small>${esc(user.name)}</small></div><span class="role">${admin() ? "Administrador" : user?.role === "parent" ? "Família" : "Treinador"}</span><button class="logout" onclick="logout()">Sair</button></div></header><main class="content">${body}</main>${nav()}</div>`;
 }
 function go(v) {
   view = v;
@@ -153,6 +159,12 @@ function go(v) {
   render();
 }
 function goBack() {
+  if (user?.role === "parent") {
+    availabilityDraft = null;
+    view = "parentHome";
+    render();
+    return;
+  }
   if (view === "athleteForm") {
     view = "athletes";
     render();
@@ -398,6 +410,26 @@ function home() {
   <div class="section"><h3>Faltas comunicadas</h3><button class="btn btn-small btn-ghost" onclick="go('absences')">Gerir</button></div><div class="card mini-summary"><strong>${planned.length}</strong><span>próximas</span><b>${todayAbsences.length} hoje</b></div>
   <div class="section"><h3>Mensalidades</h3><button class="btn btn-small btn-ghost" onclick="go('fees')">Abrir</button></div>${feesStarted ? `<div class="card mini-summary"><strong>${feesPaid}/${active.length}</strong><span>pagas este mês</span><b class="${feesMissing ? "danger-text" : ""}">${feesMissing} em falta</b></div>` : '<div class="card mini-summary future"><strong>Outubro 2026</strong><span>início das mensalidades</span></div>'}</aside></div>
   <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${admin() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button>' : ""}</div>`;
+}
+function parentHome() {
+  const today = new Date().toISOString().slice(0, 10),
+    requests = (state.availabilityRequests || [])
+      .filter((r) => r.status === "Aberto" && r.deadline >= today)
+      .map((r) => ({
+        ...r,
+        event: allEvents().find((e) => e.id === r.eventId),
+      }))
+      .filter((r) => r.event),
+    children = state.athletes || [];
+  return `<section class="parent-welcome"><span>Portal dos Pais</span><h2>${children.length === 1 ? esc(children[0].name) : "Os meus filhos"}</h2><p>Confirma disponibilidades, consulta o calendário e comunica faltas.</p></section><div class="section"><h3>Disponibilidades por responder</h3></div><div class="list">${
+    requests
+      .map((r) => {
+        const c = availabilityCounts(r.eventId, r.group);
+        return `<div class="card parent-request"><div class="grow"><strong>${esc(r.event.title)}</strong><div class="muted">${fmt(r.event.date)} · ${esc(r.event.time || "Hora por definir")} · ${esc(r.group)}</div><span>Responder até ${fmt(r.deadline)}</span></div><div class="game-availability-mini"><span class="available">✓ ${c.available}</span><span class="no-answer">? ${c.noAnswer}</span></div><button class="btn btn-primary" onclick="openAvailability('${r.eventId}','${r.group}')">Responder</button></div>`;
+      })
+      .join("") ||
+    '<div class="card empty">Não tens pedidos de disponibilidade pendentes.</div>'
+  }</div><div class="section"><h3>Acesso rápido</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div>`;
 }
 
 function absences() {
@@ -1310,7 +1342,15 @@ function nextEventsHome() {
 }
 function eventCard(e) {
   const icons = { Treino: "⚽", Jogo: "🏟️", Torneio: "🏆", Outro: "📌" };
-  const groups = e.group === "Todos" ? ["Traquinas", "Benjamins"] : [e.group];
+  const groups = (
+    e.group === "Todos" ? ["Traquinas", "Benjamins"] : [e.group]
+  ).filter(
+    (group) =>
+      user?.role !== "parent" ||
+      (state.availabilityRequests || []).some(
+        (r) => r.eventId === e.id && r.group === group && r.status === "Aberto",
+      ),
+  );
   const gameActions =
     e.type === "Jogo" || e.type === "Torneio"
       ? `<div class="calendar-event-actions">${groups
@@ -1733,14 +1773,38 @@ function availability() {
     available = values.filter((x) => x.status === "Disponível").length,
     unavailable = values.filter((x) => x.status === "Indisponível").length,
     noAnswer = values.filter((x) => x.status === "Sem resposta").length;
-  return `<div class="section"><div><h3>Disponibilidade</h3><div class="muted">${esc(event.title)} · ${fmt(event.date)} · ${esc(group)}</div></div>${event.group === "Todos" ? `<select onchange="openAvailability('${event.id}',this.value)"><option ${group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${group === "Benjamins" ? "selected" : ""}>Benjamins</option></select>` : ""}</div><div class="availability-summary"><div class="card available"><span>Disponíveis</span><strong>${available}</strong></div><div class="card unavailable"><span>Indisponíveis</span><strong>${unavailable}</strong></div><div class="card no-answer"><span>Sem resposta</span><strong>${noAnswer}</strong></div><div class="card total"><span>Total</span><strong>${athletes.length}</strong></div></div><div class="availability-toolbar"><button class="btn btn-small btn-secondary" onclick="setAllAvailability('Disponível')">Todos disponíveis</button><button class="btn btn-small btn-ghost" onclick="setAllAvailability('Sem resposta')">Limpar respostas</button></div><div class="list">${athletes
+  const request = (state.availabilityRequests || []).find(
+    (r) => r.eventId === event.id && r.group === group && r.status === "Aberto",
+  );
+  return `<div class="section"><div><h3>Disponibilidade</h3><div class="muted">${esc(event.title)} · ${fmt(event.date)} · ${esc(group)}</div></div>${event.group === "Todos" && user?.role !== "parent" ? `<select onchange="openAvailability('${event.id}',this.value)"><option ${group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${group === "Benjamins" ? "selected" : ""}>Benjamins</option></select>` : ""}</div>${admin() ? `<div class="card availability-opening"><div class="field"><label>Prazo para os pais responderem</label><input id="availabilityDeadline" type="date" min="${new Date().toISOString().slice(0, 10)}" value="${request?.deadline || event.date}"></div><button class="btn btn-primary" onclick="openAvailabilityRequest()">${request ? "Atualizar pedido e copiar mensagem" : "Abrir pedido e copiar mensagem"}</button></div>` : request ? `<div class="admin-note">Responde até ${fmt(request.deadline)}.</div>` : ""}<div class="availability-summary"><div class="card available"><span>Disponíveis</span><strong>${available}</strong></div><div class="card unavailable"><span>Indisponíveis</span><strong>${unavailable}</strong></div><div class="card no-answer"><span>Sem resposta</span><strong>${noAnswer}</strong></div><div class="card total"><span>Total</span><strong>${athletes.length}</strong></div></div>${user?.role === "parent" ? "" : `<div class="availability-toolbar"><button class="btn btn-small btn-secondary" onclick="setAllAvailability('Disponível')">Todos disponíveis</button><button class="btn btn-small btn-ghost" onclick="setAllAvailability('Sem resposta')">Limpar respostas</button></div>`}<div class="list">${athletes
     .map((a) => {
       const row = availabilityDraft.rows[a.id];
       return `<div class="card availability-row ${row.status.replace(" ", "-").toLowerCase()}">${avatar(a)}<div class="grow"><div class="absence-name"><strong>${esc(a.name)}</strong>${groupBadge(a.group)}</div><div class="availability-buttons">${["Disponível", "Indisponível", "Sem resposta"].map((s) => `<button class="${row.status === s ? "active" : ""}" onclick="setAvailability('${a.id}','${s}')">${availabilityIcon(s)} ${s}</button>`).join("")}</div><input class="availability-note" value="${esc(row.note)}" placeholder="Observação opcional" onchange="availabilityDraft.rows['${a.id}'].note=this.value"></div></div>`;
     })
     .join(
       "",
-    )}</div><div class="sticky-save availability-save"><button class="btn btn-secondary" onclick="saveAvailability()">Guardar disponibilidade</button><button class="btn btn-primary" onclick="saveAvailability(true)">Guardar e preparar convocatória</button></div>`;
+    )}</div><div class="sticky-save availability-save"><button class="btn btn-primary" onclick="saveAvailability()">${user?.role === "parent" ? "Confirmar resposta" : "Guardar disponibilidade"}</button>${user?.role === "parent" ? "" : '<button class="btn btn-primary" onclick="saveAvailability(true)">Guardar e preparar convocatória</button>'}</div>`;
+}
+async function openAvailabilityRequest() {
+  try {
+    const event = availabilityDraft.event,
+      group = availabilityDraft.group,
+      deadline = $("availabilityDeadline").value;
+    await api("saveAvailabilityRequest", {
+      eventId: event.id,
+      group,
+      deadline,
+    });
+    await refresh();
+    const link = `${location.origin}${location.pathname}?portal=pais`,
+      message = `⚽ GDR Formação 360\n\nEstá aberta a confirmação de disponibilidade para ${event.title}, no dia ${fmt(event.date)}${event.time ? ` às ${event.time}` : ""}, escalão ${group}.\n\nPor favor, respondam até ${fmt(deadline)} através do Portal dos Pais:\n${link}`;
+    if (navigator.clipboard) await navigator.clipboard.writeText(message);
+    else window.prompt("Copie a mensagem para o grupo dos pais:", message);
+    toast("Pedido aberto e mensagem copiada");
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
 }
 function setAllAvailability(status) {
   Object.values(availabilityDraft.rows).forEach((x) => (x.status = status));
@@ -1765,7 +1829,7 @@ async function saveAvailability(prepare = false) {
     toast("Disponibilidade guardada");
     if (prepare) prepareCallupForEvent(event.id, group);
     else {
-      view = "calendar";
+      view = user?.role === "parent" ? "parentHome" : "calendar";
       availabilityDraft = null;
       render();
     }
@@ -1882,13 +1946,37 @@ function printLineup() {
 function users() {
   if (!admin())
     return '<div class="admin-note">Acesso exclusivo ao Administrador.</div>';
-  return `<div class="section"><h3>Utilizadores</h3><button class="btn btn-primary" onclick="userForm()">+ Adicionar</button></div><div class="list">${state.users.map((u) => `<div class="card athlete"><div class="avatar">${u.role === "admin" ? "A" : "T"}</div><div class="grow"><strong>${esc(u.name)}</strong><div class="muted">@${esc(u.username)} · ${u.role} · ${u.active ? "Ativo" : "Inativo"}</div></div><div class="actions"><button class="btn btn-small btn-ghost" onclick="userForm('${u.id}')">Editar</button><button class="btn btn-small btn-danger" onclick="toggleUser('${u.id}',${!u.active})">${u.active ? "Desativar" : "Ativar"}</button></div></div>`).join("")}</div>`;
+  return `<div class="section"><h3>Utilizadores e famílias</h3><button class="btn btn-primary" onclick="userForm()">+ Adicionar</button></div><div class="list">${state.users
+    .map(
+      (u) =>
+        `<div class="card athlete"><div class="avatar">${u.role === "admin" ? "A" : u.role === "parent" ? "P" : "T"}</div><div class="grow"><strong>${esc(u.name)}</strong><div class="muted">@${esc(u.username)} · ${u.role === "parent" ? "Pai/Mãe" : u.role} · ${u.active ? "Ativo" : "Inativo"}</div>${
+          u.role === "parent"
+            ? `<div class="muted">${
+                (u.athleteIds || [])
+                  .map((id) => state.athletes.find((a) => a.id === id)?.name)
+                  .filter(Boolean)
+                  .map(esc)
+                  .join(" · ") || "Sem filhos associados"
+              }</div>`
+            : ""
+        }</div><div class="actions"><button class="btn btn-small btn-ghost" onclick="userForm('${u.id}')">Editar</button><button class="btn btn-small btn-danger" onclick="toggleUser('${u.id}',${!u.active})">${u.active ? "Desativar" : "Ativar"}</button></div></div>`,
+    )
+    .join("")}</div>`;
 }
 function userForm(id = "") {
   const u = id ? state.users.find((x) => x.id === id) : null;
   view = "userForm";
   $("app").innerHTML = shell(
-    `<div class="section"><h3>${u ? "Editar" : "Novo"} utilizador</h3></div><div class="card"><div class="field"><label>Nome</label><input id="un" value="${esc(u?.name || "")}"></div><div class="field"><label>Utilizador</label><input id="uu" value="${esc(u?.username || "")}"></div><div class="field"><label>PIN ${u ? "(deixa vazio para manter)" : ""}</label><input id="up" type="password" inputmode="numeric"></div><div class="field"><label>Perfil</label><select id="ur"><option value="treinador" ${u?.role === "treinador" ? "selected" : ""}>Treinador</option><option value="admin" ${u?.role === "admin" ? "selected" : ""}>Administrador</option></select></div><button class="btn btn-primary btn-block" onclick="saveUser('${id}')">Guardar</button></div>`,
+    `<div class="section"><h3>${u ? "Editar" : "Novo"} utilizador</h3></div><div class="card"><div class="field"><label>Nome</label><input id="un" value="${esc(u?.name || "")}"></div><div class="field"><label>Utilizador</label><input id="uu" value="${esc(u?.username || "")}"></div><div class="field"><label>PIN ${u ? "(deixa vazio para manter)" : ""}</label><input id="up" type="password" inputmode="numeric"></div><div class="field"><label>Perfil</label><select id="ur" onchange="$('parentFields').style.display=this.value==='parent'?'block':'none'"><option value="treinador" ${u?.role === "treinador" ? "selected" : ""}>Treinador</option><option value="parent" ${u?.role === "parent" ? "selected" : ""}>Pai/Mãe</option><option value="admin" ${u?.role === "admin" ? "selected" : ""}>Administrador</option></select></div><div id="parentFields" style="display:${u?.role === "parent" ? "block" : "none"}"><div class="field"><label>Telefone</label><input id="uph" value="${esc(u?.phone || "")}" placeholder="+351..."></div><label>Filhos associados</label><div class="parent-athletes">${sortName(
+      state.athletes.filter((a) => a.active),
+    )
+      .map(
+        (a) =>
+          `<label><input type="checkbox" name="parentAthlete" value="${a.id}" ${(u?.athleteIds || []).includes(a.id) ? "checked" : ""}> ${esc(a.name)} · ${esc(a.group)}</label>`,
+      )
+      .join(
+        "",
+      )}</div></div><button class="btn btn-primary btn-block" onclick="saveUser('${id}')">Guardar</button></div>`,
   );
 }
 async function saveUser(id) {
@@ -1900,6 +1988,10 @@ async function saveUser(id) {
         username: $("uu").value.trim(),
         pin: $("up").value,
         role: $("ur").value,
+        phone: $("uph")?.value.trim() || "",
+        athleteIds: [
+          ...document.querySelectorAll('input[name="parentAthlete"]:checked'),
+        ].map((x) => x.value),
       },
     });
     await refresh();
@@ -1927,6 +2019,7 @@ function render() {
   }
   let b = "";
   if (view === "home") b = home();
+  else if (view === "parentHome") b = parentHome();
   else if (view === "athletes") b = athletes();
   else if (view === "athleteProfile") b = athleteProfile();
   else if (view === "training") b = training();
@@ -1952,6 +2045,7 @@ function render() {
       '<div class="loading">A carregar GDR Formação 360…</div>';
     try {
       await refresh();
+      if (user?.role === "parent") view = "parentHome";
     } catch (e) {
       logout();
       return;

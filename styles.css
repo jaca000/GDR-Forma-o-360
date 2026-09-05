@@ -1632,6 +1632,60 @@ button {
   gap: 6px;
   margin-top: 9px;
 }
+.availability-opening {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 10px;
+  border-left: 4px solid var(--red);
+}
+.availability-opening .field {
+  flex: 1;
+  margin: 0;
+}
+.parent-welcome {
+  padding: 22px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--red), #7e0910);
+  color: #fff;
+}
+.parent-welcome span {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.parent-welcome h2 {
+  margin: 6px 0;
+}
+.parent-welcome p {
+  margin: 0;
+  opacity: 0.88;
+}
+.parent-request {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.parent-request .grow > span {
+  display: block;
+  margin-top: 5px;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 900;
+}
+.parent-athletes {
+  display: grid;
+  gap: 7px;
+  margin: 7px 0 16px;
+}
+.parent-athletes label {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.parent-nav {
+  grid-template-columns: repeat(3, 1fr);
+}
 .calendar-callup-card {
   display: grid;
   grid-template-columns: minmax(190px, 1fr) repeat(2, minmax(250px, 1fr));
@@ -1765,6 +1819,11 @@ button {
   margin-top: -8px;
 }
 @media (max-width: 500px) {
+  .availability-opening,
+  .parent-request {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .training-summary-kpis {
     grid-template-columns: repeat(2, 1fr);
   }
