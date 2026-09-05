@@ -1836,6 +1836,137 @@ button {
   font-size: 10px;
   font-weight: 900;
 }
+.parent-callup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.callup-icon,
+.goal-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  background: #fff0f1;
+  font-size: 20px;
+}
+.parent-callup span,
+.parent-callup small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+.callup-status {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #e6f6ec;
+  color: #178248;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.parent-fees {
+  padding: 0;
+  overflow: hidden;
+}
+.parent-fee-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fff6f6, #fff);
+}
+.parent-fee-head span,
+.parent-fee-head strong {
+  display: block;
+}
+.parent-fee-head span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.parent-fee-head strong {
+  margin-top: 4px;
+  color: var(--red);
+  font-size: 18px;
+}
+.parent-fee-history > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 12px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--line);
+}
+.parent-fee-history small {
+  grid-column: 1 / 3;
+  color: var(--muted);
+}
+.parent-fees > p {
+  padding: 0 16px 16px;
+}
+.fee-parent-current {
+  font-size: 10px;
+  font-weight: 900;
+}
+.parent-goal {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.parent-goal p {
+  margin: 5px 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.parent-goal small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}
+.goal-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eceef1;
+}
+.goal-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--red), #f1ad19);
+}
+.parent-achievements {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.achievement {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  box-shadow: none;
+}
+.achievement > span {
+  font-size: 23px;
+}
+.achievement strong,
+.achievement small {
+  display: block;
+}
+.achievement strong {
+  font-size: 10px;
+}
+.achievement small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.3;
+}
 .parent-athletes {
   display: grid;
   gap: 7px;
@@ -1991,6 +2122,16 @@ button {
   }
   .parent-main-grid {
     display: block;
+  }
+  .parent-achievements {
+    grid-template-columns: 1fr;
+  }
+  .parent-callup {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .callup-status {
+    margin-left: 54px;
   }
   .availability-opening,
   .parent-request {

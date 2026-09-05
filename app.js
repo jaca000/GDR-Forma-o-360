@@ -496,7 +496,11 @@ function parentHome() {
       attendance,
       Number(avgValue("effort")),
       Number(avgValue("behavior")),
-    );
+    ),
+    parentCallupsHtml = parentCallupsSection(child, today),
+    parentFeesHtml = parentFeesSection(child, today),
+    monthlyGoal = parentMonthlyGoal(child, records, today),
+    achievements = parentAchievements(child, records, today);
   return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section><div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
     requests
       .map((r) => {
@@ -520,7 +524,7 @@ function parentHome() {
       })
       .join("") ||
     '<div class="card empty">Ainda não existem treinos registados.</div>'
-  }</div></section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
+  }</div>${parentCallupsHtml}${parentFeesHtml}</section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Objetivo do mês</h3></div><div class="card parent-goal"><div class="goal-icon">🎯</div><div class="grow"><strong>${esc(monthlyGoal.title)}</strong><p>${esc(monthlyGoal.message)}</p><div class="goal-track"><i style="width:${monthlyGoal.progress}%"></i></div><small>${monthlyGoal.progress}% do objetivo</small></div></div><div class="section"><h3>Conquistas do atleta</h3><span>${achievements.length}</span></div><div class="parent-achievements">${achievements.map((a) => `<div class="card achievement"><span>${a.icon}</span><div><strong>${esc(a.title)}</strong><small>${esc(a.text)}</small></div></div>`).join("")}</div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
 }
 
 function parentEvolutionMessage(child, records, attendance, effort, behavior) {
@@ -557,6 +561,164 @@ function parentEvolutionMessage(child, records, attendance, effort, behavior) {
           : "margem para evoluir no comportamento",
     );
   return `${child.name} ${presence} e ${attendanceText}. ${qualities.length ? `Os registos indicam ${qualities.join(" e ")}. ` : ""}A evolução continuará a ser acompanhada nos próximos treinos.`;
+}
+
+function parentCallupsSection(child, today) {
+  const rows = athleteCallups(child.id)
+    .map((callup) => ({
+      callup,
+      game: state.games.find((game) => game.id === callup.gameId),
+    }))
+    .filter((row) => row.game)
+    .sort((a, b) => b.game.date.localeCompare(a.game.date))
+    .slice(0, 4);
+  return `<div class="section"><h3>Convocatórias</h3><span>${rows.filter((r) => r.game.date >= today).length} próximas</span></div><div class="list parent-callups">${
+    rows
+      .map(
+        ({ game }) =>
+          `<div class="card parent-callup"><div class="callup-icon">${game.date >= today ? "⚽" : "✓"}</div><div class="grow"><strong>Convocado · GDR × ${esc(game.opponent)}</strong><span>${fmt(game.date)} · ${esc(game.time || "Hora por definir")}${game.location ? ` · ${esc(game.location)}` : ""}</span><small>${esc(game.group)}${game.equipment ? ` · Equipamento ${esc(game.equipment)}` : ""}</small></div><b class="callup-status">Convocado</b></div>`,
+      )
+      .join("") ||
+    '<div class="card empty">Não existem convocatórias publicadas para este atleta.</div>'
+  }</div>`;
+}
+
+function parentFeesSection(child, today) {
+  const start = state.settings?.feeStartMonth || "2026-10",
+    rows = (state.monthlyFees || [])
+      .filter((fee) => fee.athleteId === child.id)
+      .sort((a, b) => b.month.localeCompare(a.month))
+      .slice(0, 6),
+    currentMonth = today.slice(0, 7),
+    current = rows.find((fee) => fee.month === currentMonth),
+    currentStatus = current
+      ? feeStatus(current, currentMonth)
+      : currentMonth < start
+        ? "Ainda não iniciada"
+        : feeStatus(null, currentMonth);
+  return `<div class="section"><h3>Mensalidades</h3><span class="fee-parent-current ${groupClass(currentStatus)}">${esc(currentStatus)}</span></div><div class="card parent-fees"><div class="parent-fee-head"><div><span>Situação atual</span><strong>${esc(currentStatus)}</strong></div><b>${currentMonth < start ? "Início em outubro de 2026" : "10 € / mês"}</b></div>${
+    rows.length
+      ? `<div class="parent-fee-history">${rows
+          .map(
+            (fee) =>
+              `<div><span>${new Date(fee.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</span><b>${esc(fee.status)}</b>${fee.status === "Pago" ? `<small>${fmt(fee.paymentDate)} · ${esc(fee.method)}</small>` : ""}</div>`,
+          )
+          .join("")}</div>`
+      : `<p class="muted">${currentMonth < start ? "O histórico ficará disponível aqui a partir da primeira mensalidade." : "Ainda não existem mensalidades registadas."}</p>`
+  }</div>`;
+}
+
+function parentMonthlyGoal(child, records, today) {
+  const month = today.slice(0, 7),
+    rr = records.filter(
+      (record) => trainingDate(record.trainingId).slice(0, 7) === month,
+    ),
+    present = rr.filter((record) => record.status === "Presente"),
+    average = (key) =>
+      present.length
+        ? present.reduce((sum, record) => sum + Number(record[key] || 0), 0) /
+          present.length
+        : 0;
+  if (!rr.length)
+    return {
+      title: "Participar no primeiro treino do mês",
+      message: `O primeiro objetivo de ${child.name} é iniciar o mês com presença e participação no treino.`,
+      progress: 0,
+    };
+  const options = [
+    {
+      title: "Assiduidade consistente",
+      message:
+        "Objetivo: alcançar pelo menos 90% de presença nos treinos deste mês.",
+      progress: Math.min(
+        100,
+        Math.round((present.length / rr.length / 0.9) * 100),
+      ),
+    },
+    {
+      title: "Empenho em cada treino",
+      message:
+        "Objetivo: manter um nível de empenho consistente ao longo do mês.",
+      progress: Math.min(100, Math.round((average("effort") / 4) * 100)),
+    },
+    {
+      title: "Atitude positiva",
+      message:
+        "Objetivo: manter uma atitude positiva e disponível em todos os treinos.",
+      progress: Math.min(100, Math.round((average("attitude") / 4) * 100)),
+    },
+    {
+      title: "Comportamento exemplar",
+      message:
+        "Objetivo: manter um comportamento muito positivo durante os treinos.",
+      progress: Math.min(100, Math.round((average("behavior") / 4) * 100)),
+    },
+  ];
+  return options.sort((a, b) => a.progress - b.progress)[0];
+}
+
+function parentAchievements(child, records, today) {
+  if (!records.length)
+    return [
+      {
+        icon: "🌱",
+        title: "Primeira conquista a caminho",
+        text: "Será desbloqueada com o primeiro treino registado.",
+      },
+    ];
+  const present = records.filter((record) => record.status === "Presente"),
+    average = (key) =>
+      present.length
+        ? present.reduce((sum, record) => sum + Number(record[key] || 0), 0) /
+          present.length
+        : 0,
+    month = today.slice(0, 7),
+    monthRecords = records.filter(
+      (record) => trainingDate(record.trainingId).slice(0, 7) === month,
+    ),
+    streak = records.findIndex((record) => record.status !== "Presente"),
+    currentStreak = streak < 0 ? records.length : streak,
+    achievements = [
+      {
+        icon: "⭐",
+        title: "Primeiro treino",
+        text: "Primeiro registo da época concluído.",
+      },
+    ];
+  if (
+    monthRecords.length >= 2 &&
+    monthRecords.every((record) => record.status === "Presente")
+  )
+    achievements.push({
+      icon: "🏅",
+      title: "Assiduidade total",
+      text: "Presença em todos os treinos registados este mês.",
+    });
+  if (currentStreak >= 3)
+    achievements.push({
+      icon: "🔥",
+      title: `${currentStreak} presenças seguidas`,
+      text: "Uma excelente sequência de participação.",
+    });
+  if (present.length >= 3 && average("effort") >= 4)
+    achievements.push({
+      icon: "💪",
+      title: "Grande empenho",
+      text: "Empenho muito positivo nos treinos registados.",
+    });
+  if (present.length >= 3 && average("behavior") >= 4)
+    achievements.push({
+      icon: "🤝",
+      title: "Atitude de equipa",
+      text: "Comportamento muito positivo e consistente.",
+    });
+  if (athleteCallups(child.id).length)
+    achievements.push({
+      icon: "⚽",
+      title: "Primeira convocatória",
+      text: "Convocado para representar o GDR.",
+    });
+  return achievements.slice(0, 6);
 }
 
 function absences() {
