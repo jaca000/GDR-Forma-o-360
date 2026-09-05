@@ -476,7 +476,12 @@ function parentHome() {
       )
       .slice(0, 5),
     summary = (state.monthlySummaries || [])
-      .filter((s) => s.athleteId === child.id)
+      .filter(
+        (s) =>
+          s.athleteId === child.id &&
+          s.text &&
+          !s.text.startsWith("Ainda não existem registos suficientes"),
+      )
       .sort((a, b) => b.month.localeCompare(a.month))[0],
     avgValue = (key) =>
       present.length
@@ -484,7 +489,14 @@ function parentHome() {
             present.reduce((sum, r) => sum + Number(r[key] || 0), 0) /
             present.length
           ).toFixed(1)
-        : "—";
+        : "—",
+    currentEvolution = parentEvolutionMessage(
+      child,
+      records,
+      attendance,
+      Number(avgValue("effort")),
+      Number(avgValue("behavior")),
+    );
   return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section><div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
     requests
       .map((r) => {
@@ -499,7 +511,7 @@ function parentHome() {
       })
       .join("") ||
     '<div class="card empty">Não existem disponibilidades abertas.</div>'
-  }</div><div class="section"><h3>Resumo mensal por IA</h3></div><div class="card ai-parent-summary">${summary ? `<div class="ai-summary-head"><span>✨ Gerado por IA</span><b>${new Date(summary.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</b></div><p>${esc(summary.text).replace(/\n/g, "<br>")}</p><small>Gerado automaticamente com base nos registos do atleta.</small>` : '<div class="empty"><b>Resumo ainda não disponível</b><span>Será gerado automaticamente no início do próximo mês, quando existirem dados suficientes.</span></div>'}</div><div class="section"><h3>Treinos recentes</h3><span>${records.length} registos</span></div><div class="list parent-trainings">${
+  }</div><div class="section"><h3>Evolução do atleta</h3></div><div class="card ai-parent-summary">${summary ? `<div class="ai-summary-head"><span>Balanço mensal</span><b>${new Date(summary.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</b></div><p>${esc(summary.text).replace(/\n/g, "<br>")}</p>` : `<div class="ai-summary-head"><span>Acompanhamento atual</span><b>${records.length} ${records.length === 1 ? "treino registado" : "treinos registados"}</b></div><p>${esc(currentEvolution)}</p>`}<small>Análise atualizada com base nos registos dos treinos.</small></div><div class="section"><h3>Treinos recentes</h3><span>${records.length} registos</span></div><div class="list parent-trainings">${
     records
       .slice(0, 6)
       .map((r) => {
@@ -509,6 +521,42 @@ function parentHome() {
       .join("") ||
     '<div class="card empty">Ainda não existem treinos registados.</div>'
   }</div></section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
+}
+
+function parentEvolutionMessage(child, records, attendance, effort, behavior) {
+  if (!records.length)
+    return `A época de ${child.name} será acompanhada nesta área assim que forem registados os primeiros treinos.`;
+  const latest = records[0],
+    presence =
+      latest.status === "Presente"
+        ? "esteve presente no treino mais recente"
+        : latest.status === "Justificada"
+          ? "teve a ausência do treino mais recente devidamente justificada"
+          : "não esteve presente no treino mais recente",
+    attendanceText =
+      attendance >= 90
+        ? `mantém uma assiduidade muito positiva de ${attendance}%`
+        : attendance >= 70
+          ? `mantém uma assiduidade regular de ${attendance}%`
+          : `apresenta atualmente uma assiduidade de ${attendance}%`,
+    qualities = [];
+  if (Number.isFinite(effort))
+    qualities.push(
+      effort >= 4
+        ? "um empenho muito positivo"
+        : effort >= 3
+          ? "um empenho consistente"
+          : "margem para reforçar o empenho",
+    );
+  if (Number.isFinite(behavior))
+    qualities.push(
+      behavior >= 4
+        ? "um comportamento muito positivo"
+        : behavior >= 3
+          ? "um comportamento consistente"
+          : "margem para evoluir no comportamento",
+    );
+  return `${child.name} ${presence} e ${attendanceText}. ${qualities.length ? `Os registos indicam ${qualities.join(" e ")}. ` : ""}A evolução continuará a ser acompanhada nos próximos treinos.`;
 }
 
 function absences() {

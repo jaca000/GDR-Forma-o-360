@@ -1,4 +1,4 @@
-# GDR Formação 360 — v12
+# GDR Formação 360 — v12.1
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -9,6 +9,8 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Painel familiar com assiduidade, treinos do mês, empenho, comportamento, evolução recente e próximos eventos.
 - Histórico dos treinos recentes, com acesso ao resumo individual do filho sem expor dados de outros atletas.
 - Resumo mensal criado automaticamente por IA apenas a partir dos registos dos treinos, sem intervenção ou validação da equipa técnica.
+- No Portal dos Pais esta área chama-se **Evolução do atleta** e não apresenta referências técnicas à utilização de IA.
+- Enquanto ainda não houver dados suficientes, é mostrado um acompanhamento discreto, sem mensagens de erro ou “resumo indisponível”.
 - Linguagem adequada aos pais, sem comparações entre crianças, diagnósticos ou exposição das classificações numéricas.
 - Famílias com vários filhos podem alternar entre atletas no topo do portal; todos os dados continuam filtrados no servidor.
 
@@ -108,4 +110,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 13. Cole a mensagem no grupo dos pais e teste o link com a conta familiar.
 14. Configure `OPENAI_API_KEY`, use **Gerar resumos IA** e confirme no Portal dos Pais o texto do mês selecionado.
 
-Versão: **12.0.0**.
+Versão: **12.1.0**.
