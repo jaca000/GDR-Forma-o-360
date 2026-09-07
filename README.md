@@ -1,10 +1,11 @@
-# GDR Formação 360 — v13
+# GDR Formação 360 — v13.1
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
 
 - Mural de avisos do clube, com destinatários por escalão, prioridade e período de publicação; apenas `josealmanso` publica ou elimina.
+- Novo desenho do mural: destaque horizontal, pré-visualização curta, etiquetas claras e leitura completa numa página própria.
 - Notificações internas pessoais com contador de não lidas para novos avisos, disponibilidades por responder e convocatórias.
 - Estado de leitura guardado na Sheet e associado ao utilizador, funcionando em diferentes dispositivos.
 - Modo Dia de Jogo com contagem decrescente, data, hora, local, equipamento, disponibilidade e convocatória.
@@ -121,4 +122,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 13. Cole a mensagem no grupo dos pais e teste o link com a conta familiar.
 14. Configure `OPENAI_API_KEY`, use **Gerar resumos IA** e confirme no Portal dos Pais o texto do mês selecionado.
 
-Versão: **13.0.0**.
+Versão: **13.1.0**.

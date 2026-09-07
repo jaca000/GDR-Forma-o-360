@@ -341,13 +341,16 @@ function activeAnnouncements(group = "") {
         String(b.createdAt).localeCompare(String(a.createdAt)),
     );
 }
+function announcementAudience(a) {
+  return a.group === "Todos" ? "Toda a família GDR" : `Famílias · ${a.group}`;
+}
 function noticeBoard(limit = 3, group = "") {
   const notices = activeAnnouncements(group).slice(0, limit);
   if (!notices.length && !availabilityOwner()) return "";
-  return `<div class="section notice-title"><h3>Mural do clube</h3><button class="btn btn-small btn-ghost" onclick="go('announcements')">${availabilityOwner() ? "Gerir avisos" : "Ver todos"}</button></div><div class="notice-board">${notices
+  return `<div class="section notice-title"><div><span class="section-kicker">Informação do clube</span><h3>Mural GDR</h3></div><button class="btn btn-small btn-ghost" onclick="go('announcements')">${availabilityOwner() ? "Gerir mural" : "Ver todos os avisos"}</button></div><div class="notice-board notice-preview">${notices
     .map(
       (a) =>
-        `<article class="card club-notice ${a.priority.toLowerCase()}"><span>${a.priority === "Urgente" ? "🚨" : a.priority === "Importante" ? "📣" : "❤️"}</span><div><div class="notice-meta">${esc(a.priority)} · ${esc(a.group)}</div><strong>${esc(a.title)}</strong><p>${esc(a.message)}</p></div></article>`,
+        `<article class="card club-notice notice-compact ${a.priority.toLowerCase()}"><div class="notice-icon">${a.priority === "Urgente" ? "!" : a.priority === "Importante" ? "📣" : "GDR"}</div><div class="grow"><div class="notice-badges">${a.priority !== "Normal" ? `<span class="priority-${a.priority.toLowerCase()}">${esc(a.priority)}</span>` : ""}<span>${esc(announcementAudience(a))}</span>${a.endDate ? `<span>Até ${fmt(a.endDate)}</span>` : ""}</div><strong>${esc(a.title)}</strong><p>${esc(a.message)}</p><button class="notice-read" onclick="go('announcements')">Ler aviso completo <i>→</i></button></div></article>`,
     )
     .join(
       "",
@@ -447,7 +450,7 @@ function announcementsView() {
     list
       .map(
         (a) =>
-          `<article class="card club-notice ${a.priority.toLowerCase()}"><span>${a.priority === "Urgente" ? "🚨" : a.priority === "Importante" ? "📣" : "❤️"}</span><div class="grow"><div class="notice-meta">${esc(a.priority)} · ${esc(a.group)}${a.endDate ? ` · até ${fmt(a.endDate)}` : ""}</div><strong>${esc(a.title)}</strong><p>${esc(a.message)}</p></div>${availabilityOwner() ? `<button class="btn btn-small btn-danger" onclick="deleteAnnouncement('${a.id}')">Eliminar</button>` : ""}</article>`,
+          `<article class="card club-notice notice-full ${a.priority.toLowerCase()}"><div class="notice-icon">${a.priority === "Urgente" ? "!" : a.priority === "Importante" ? "📣" : "GDR"}</div><div class="grow"><div class="notice-badges">${a.priority !== "Normal" ? `<span class="priority-${a.priority.toLowerCase()}">${esc(a.priority)}</span>` : ""}<span>${esc(announcementAudience(a))}</span>${a.endDate ? `<span>Até ${fmt(a.endDate)}</span>` : ""}</div><strong>${esc(a.title)}</strong><p>${esc(a.message).replace(/\n/g, "<br>")}</p></div>${availabilityOwner() ? `<button class="btn btn-small btn-danger" onclick="deleteAnnouncement('${a.id}')">Eliminar</button>` : ""}</article>`,
       )
       .join("") ||
     '<div class="card empty">Ainda não existem avisos publicados.</div>'

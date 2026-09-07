@@ -1992,43 +1992,128 @@ button {
   font-size: 8px;
 }
 .notice-title {
-  margin-top: 18px;
+  margin-top: 22px;
+  margin-bottom: 10px;
 }
-.notice-board {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.notice-board.full {
-  grid-template-columns: 1fr;
-}
-.club-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  border-left: 4px solid #d9dde3;
-}
-.club-notice.importante {
-  border-left-color: #f1ad19;
-}
-.club-notice.urgente {
-  border-left-color: var(--red);
-  background: #fff8f8;
-}
-.club-notice > span {
+.notice-title h3 {
+  margin: 2px 0 0;
   font-size: 22px;
 }
-.club-notice p {
-  margin: 5px 0 0;
-  color: var(--muted);
-  line-height: 1.45;
-}
-.notice-meta {
-  margin-bottom: 4px;
+.section-kicker {
   color: var(--red);
   font-size: 8px;
   font-weight: 900;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+.notice-board {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.notice-board.full {
+  grid-template-columns: 1fr;
+  max-width: 900px;
+}
+.club-notice {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-left: 0;
+  padding: 20px;
+  background: #fff;
+}
+.club-notice:before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, var(--red), #8b0710);
+}
+.club-notice.importante {
+  border-color: #f0dfae;
+}
+.club-notice.urgente {
+  background: #fff8f8;
+}
+.notice-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 15px;
+  background: linear-gradient(145deg, var(--red), #860810);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(174, 13, 23, 0.2);
+  font-size: 13px;
+  font-weight: 950;
+}
+.club-notice strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 18px;
+  line-height: 1.25;
+}
+.club-notice p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.notice-compact p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.notice-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.notice-badges span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #f1f2f4;
+  color: #626773;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.notice-badges .priority-importante {
+  background: #fff1c9;
+  color: #8a6000;
+}
+.notice-badges .priority-urgente {
+  background: #ffe2e4;
+  color: var(--red);
+}
+.notice-read {
+  margin-top: 12px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 900;
+}
+.notice-read i {
+  margin-left: 3px;
+  font-size: 14px;
+}
+.notice-full {
+  padding: 24px;
+}
+.notice-full p {
+  max-width: 760px;
+  color: #4e535d;
+  font-size: 14px;
+  line-height: 1.7;
 }
 .notification-row {
   display: flex;
@@ -2301,6 +2386,22 @@ button {
   .notice-board,
   .matchday-grid {
     grid-template-columns: 1fr;
+  }
+  .club-notice {
+    gap: 11px;
+    padding: 15px;
+  }
+  .notice-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 11px;
+  }
+  .club-notice strong {
+    font-size: 15px;
+  }
+  .club-notice p {
+    font-size: 11px;
   }
   .matchday-actions {
     flex-direction: column;
