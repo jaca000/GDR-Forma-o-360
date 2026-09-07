@@ -1967,6 +1967,181 @@ button {
   font-size: 8px;
   line-height: 1.3;
 }
+.notification-bell {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: #f4f5f7;
+  font-size: 17px;
+}
+.notification-bell b {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-size: 8px;
+}
+.notice-title {
+  margin-top: 18px;
+}
+.notice-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.notice-board.full {
+  grid-template-columns: 1fr;
+}
+.club-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-left: 4px solid #d9dde3;
+}
+.club-notice.importante {
+  border-left-color: #f1ad19;
+}
+.club-notice.urgente {
+  border-left-color: var(--red);
+  background: #fff8f8;
+}
+.club-notice > span {
+  font-size: 22px;
+}
+.club-notice p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.notice-meta {
+  margin-bottom: 4px;
+  color: var(--red);
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.notification-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.notification-row.unread {
+  border-left: 4px solid var(--red);
+  background: #fffafa;
+}
+.notification-row > span {
+  font-size: 22px;
+}
+.notification-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+.matchday-hero {
+  padding: 28px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #970913, var(--red));
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 16px 34px rgba(151, 9, 19, 0.2);
+}
+.matchday-hero span {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.matchday-hero h2 {
+  margin: 8px 0;
+  font-size: 30px;
+}
+.matchday-hero p {
+  margin: 0;
+  font-weight: 800;
+}
+.matchday-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.matchday-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.matchday-details span,
+.matchday-details strong,
+.family-match-status span,
+.family-match-status strong {
+  display: block;
+}
+.matchday-details span,
+.family-match-status span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.matchday-details strong,
+.family-match-status strong {
+  margin-top: 4px;
+}
+.family-match-status {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.family-match-status .btn {
+  grid-column: 1 / 3;
+}
+.technical-match-status {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+.technical-match-status span,
+.technical-match-status strong {
+  display: block;
+}
+.technical-match-status strong {
+  margin-top: 5px;
+  color: var(--red);
+  font-size: 25px;
+}
+.matchday-actions {
+  grid-column: 1 / 4;
+  display: flex;
+  gap: 7px;
+}
+.matchday-actions .btn {
+  flex: 1;
+}
+.map-button {
+  margin-top: 12px;
+  text-align: center;
+}
+.matchday-empty {
+  padding: 40px;
+  text-align: center;
+}
+.matchday-empty > span {
+  font-size: 46px;
+}
 .parent-athletes {
   display: grid;
   gap: 7px;
@@ -1978,7 +2153,7 @@ button {
   border-radius: 10px;
 }
 .parent-nav {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
 }
 .calendar-callup-card {
   display: grid;
@@ -2122,6 +2297,13 @@ button {
   }
   .parent-main-grid {
     display: block;
+  }
+  .notice-board,
+  .matchday-grid {
+    grid-template-columns: 1fr;
+  }
+  .matchday-actions {
+    flex-direction: column;
   }
   .parent-achievements {
     grid-template-columns: 1fr;

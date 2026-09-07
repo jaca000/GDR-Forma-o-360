@@ -15,6 +15,8 @@ let state = {
   gameAvailability: [],
   availabilityRequests: [],
   monthlySummaries: [],
+  announcements: [],
+  notificationReads: [],
   settings: { feeAmount: 10 },
 };
 let view = "home",
@@ -137,7 +139,7 @@ async function refresh() {
 
 function nav() {
   if (user?.role === "parent")
-    return `<nav class="nav parent-nav"><button class="${view === "parentHome" ? "active" : ""}" onclick="go('parentHome')"><span class="ico">⌂</span>Início</button><button class="${view === "absences" ? "active" : ""}" onclick="go('absences')"><span class="ico">📆</span>Faltas</button><button class="${view === "calendar" ? "active" : ""}" onclick="go('calendar')"><span class="ico">📅</span>Calendário</button></nav>`;
+    return `<nav class="nav parent-nav"><button class="${view === "parentHome" ? "active" : ""}" onclick="go('parentHome')"><span class="ico">⌂</span>Início</button><button class="${view === "matchDay" ? "active" : ""}" onclick="go('matchDay')"><span class="ico">⚽</span>Dia de jogo</button><button class="${view === "absences" ? "active" : ""}" onclick="go('absences')"><span class="ico">📆</span>Faltas</button><button class="${view === "calendar" ? "active" : ""}" onclick="go('calendar')"><span class="ico">📅</span>Calendário</button></nav>`;
   return `<nav class="nav">${[
     ["home", "⌂", "Início"],
     ["training", "⚽", "Treino"],
@@ -153,7 +155,8 @@ function nav() {
 }
 function shell(body) {
   const rootView = user?.role === "parent" ? "parentHome" : "home";
-  return `<div class="app"><header class="topbar"><div class="brand">${view !== rootView ? '<button class="back-btn" onclick="goBack()" aria-label="Voltar">←</button>' : ""}<img class="brand-logo" src="logo-formacao-gdr.png"><div class="brand-copy"><h1>${C.APP_NAME}</h1><small>${esc(user.name)}</small></div><span class="role">${admin() ? "Administrador" : user?.role === "parent" ? "Família" : "Treinador"}</span><button class="logout" onclick="logout()">Sair</button></div></header><main class="content">${body}</main>${nav()}</div>`;
+  const unread = notificationItems().filter((n) => !n.read).length;
+  return `<div class="app"><header class="topbar"><div class="brand">${view !== rootView ? '<button class="back-btn" onclick="goBack()" aria-label="Voltar">←</button>' : ""}<img class="brand-logo" src="logo-formacao-gdr.png"><div class="brand-copy"><h1>${C.APP_NAME}</h1><small>${esc(user.name)}</small></div><button class="notification-bell" onclick="openNotifications()" aria-label="Notificações">🔔${unread ? `<b>${unread}</b>` : ""}</button><span class="role">${admin() ? "Administrador" : user?.role === "parent" ? "Família" : "Treinador"}</span><button class="logout" onclick="logout()">Sair</button></div></header><main class="content">${body}</main>${nav()}</div>`;
 }
 function go(v) {
   view = v;
@@ -321,6 +324,232 @@ function tagsCount(id) {
   return map;
 }
 
+function activeAnnouncements(group = "") {
+  const today = new Date().toISOString().slice(0, 10),
+    rank = { Urgente: 0, Importante: 1, Normal: 2 };
+  return (state.announcements || [])
+    .filter(
+      (a) =>
+        a.active &&
+        (!a.startDate || a.startDate <= today) &&
+        (!a.endDate || a.endDate >= today) &&
+        (!group || a.group === "Todos" || a.group === group),
+    )
+    .sort(
+      (a, b) =>
+        (rank[a.priority] ?? 9) - (rank[b.priority] ?? 9) ||
+        String(b.createdAt).localeCompare(String(a.createdAt)),
+    );
+}
+function noticeBoard(limit = 3, group = "") {
+  const notices = activeAnnouncements(group).slice(0, limit);
+  if (!notices.length && !availabilityOwner()) return "";
+  return `<div class="section notice-title"><h3>Mural do clube</h3><button class="btn btn-small btn-ghost" onclick="go('announcements')">${availabilityOwner() ? "Gerir avisos" : "Ver todos"}</button></div><div class="notice-board">${notices
+    .map(
+      (a) =>
+        `<article class="card club-notice ${a.priority.toLowerCase()}"><span>${a.priority === "Urgente" ? "🚨" : a.priority === "Importante" ? "📣" : "❤️"}</span><div><div class="notice-meta">${esc(a.priority)} · ${esc(a.group)}</div><strong>${esc(a.title)}</strong><p>${esc(a.message)}</p></div></article>`,
+    )
+    .join(
+      "",
+    )}${!notices.length ? '<div class="card empty">Ainda não existem avisos publicados.</div>' : ""}</div>`;
+}
+function notificationItems() {
+  if (!user) return [];
+  const today = new Date().toISOString().slice(0, 10),
+    reads = new Set(state.notificationReads || []),
+    group =
+      user.role === "parent"
+        ? state.athletes.find((a) => a.id === selectedParentAthleteId)?.group ||
+          state.athletes[0]?.group
+        : "",
+    items = activeAnnouncements(group).map((a) => ({
+      key: `announcement:${a.id}`,
+      icon: a.priority === "Urgente" ? "🚨" : "📣",
+      title: a.title,
+      text: a.message,
+      action: "announcements",
+    }));
+  if (user.role === "parent") {
+    const childIds = new Set(state.athletes.map((a) => a.id));
+    (state.availabilityRequests || [])
+      .filter(
+        (r) =>
+          r.status === "Aberto" &&
+          !state.gameAvailability.some(
+            (x) =>
+              x.eventId === r.eventId &&
+              childIds.has(x.athleteId) &&
+              x.group === r.group,
+          ),
+      )
+      .forEach((r) =>
+        items.push({
+          key: `availability:${r.id}`,
+          icon: "✅",
+          title: "Disponibilidade por responder",
+          text: `Resposta necessária até ${fmt(r.deadline)}.`,
+          action: "parentHome",
+        }),
+      );
+    state.callups
+      .filter(
+        (c) =>
+          childIds.has(c.athleteId) &&
+          c.status === "Convocado" &&
+          state.games.some((g) => g.id === c.gameId && g.date >= today),
+      )
+      .forEach((c) => {
+        const g = state.games.find((x) => x.id === c.gameId);
+        items.push({
+          key: `callup:${c.id}`,
+          icon: "⚽",
+          title: "Nova convocatória",
+          text: `GDR × ${g.opponent} · ${fmt(g.date)}.`,
+          action: "matchDay",
+        });
+      });
+  }
+  return items.map((item) => ({ ...item, read: reads.has(item.key) }));
+}
+async function openNotifications() {
+  const items = notificationItems(),
+    unread = items.filter((n) => !n.read).map((n) => n.key);
+  view = "notifications";
+  render();
+  if (unread.length)
+    try {
+      await api("markNotificationsRead", { keys: unread });
+      state.notificationReads = [...(state.notificationReads || []), ...unread];
+    } catch (_) {}
+}
+function notificationsView() {
+  const items = notificationItems();
+  return `<div class="section"><div><h3>Notificações</h3><div class="muted">Avisos e ações importantes num só lugar.</div></div></div><div class="list notifications-list">${
+    items
+      .map(
+        (n) =>
+          `<button class="card notification-row ${n.read ? "" : "unread"}" onclick="go('${n.action}')"><span>${n.icon}</span><div class="grow"><strong>${esc(n.title)}</strong><small>${esc(n.text)}</small></div><i>›</i></button>`,
+      )
+      .join("") ||
+    '<div class="card empty">Não existem notificações neste momento.</div>'
+  }</div>`;
+}
+function announcementsView() {
+  const list = availabilityOwner()
+    ? state.announcements || []
+    : activeAnnouncements(
+        user.role === "parent"
+          ? state.athletes.find((a) => a.id === selectedParentAthleteId)
+              ?.group || state.athletes[0]?.group
+          : "",
+      );
+  return `<div class="section"><div><h3>Mural de avisos do clube</h3><div class="muted">Informações importantes para atletas, famílias e equipa técnica.</div></div>${availabilityOwner() ? '<button class="btn btn-primary" onclick="announcementForm()">+ Novo aviso</button>' : ""}</div><div class="notice-board full">${
+    list
+      .map(
+        (a) =>
+          `<article class="card club-notice ${a.priority.toLowerCase()}"><span>${a.priority === "Urgente" ? "🚨" : a.priority === "Importante" ? "📣" : "❤️"}</span><div class="grow"><div class="notice-meta">${esc(a.priority)} · ${esc(a.group)}${a.endDate ? ` · até ${fmt(a.endDate)}` : ""}</div><strong>${esc(a.title)}</strong><p>${esc(a.message)}</p></div>${availabilityOwner() ? `<button class="btn btn-small btn-danger" onclick="deleteAnnouncement('${a.id}')">Eliminar</button>` : ""}</article>`,
+      )
+      .join("") ||
+    '<div class="card empty">Ainda não existem avisos publicados.</div>'
+  }</div>`;
+}
+function announcementForm() {
+  if (!availabilityOwner()) return;
+  view = "announcementForm";
+  render();
+}
+function announcementFormView() {
+  const today = new Date().toISOString().slice(0, 10);
+  return `<div class="section"><h3>Novo aviso</h3></div><div class="card"><div class="field"><label>Título</label><input id="ant"></div><div class="field"><label>Mensagem</label><textarea id="anm" rows="5"></textarea></div><div class="form2"><div class="field"><label>Destinatários</label><select id="ang"><option>Todos</option><option>Traquinas</option><option>Benjamins</option></select></div><div class="field"><label>Prioridade</label><select id="anp"><option>Normal</option><option>Importante</option><option>Urgente</option></select></div></div><div class="form2"><div class="field"><label>Publicar a partir de</label><input id="ans" type="date" value="${today}"></div><div class="field"><label>Mostrar até</label><input id="ane" type="date"></div></div><button class="btn btn-primary btn-block" onclick="saveAnnouncement()">Publicar aviso</button></div>`;
+}
+async function saveAnnouncement() {
+  try {
+    await api("saveAnnouncement", {
+      announcement: {
+        title: $("ant").value.trim(),
+        message: $("anm").value.trim(),
+        group: $("ang").value,
+        priority: $("anp").value,
+        startDate: $("ans").value,
+        endDate: $("ane").value,
+        active: true,
+      },
+    });
+    await refresh();
+    view = "announcements";
+    render();
+    toast("Aviso publicado");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function deleteAnnouncement(id) {
+  if (!confirm("Eliminar este aviso?")) return;
+  try {
+    await api("deleteAnnouncement", { id });
+    await refresh();
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+function matchDay() {
+  const today = new Date().toISOString().slice(0, 10),
+    child =
+      user.role === "parent"
+        ? state.athletes.find((a) => a.id === selectedParentAthleteId) ||
+          state.athletes[0]
+        : null,
+    event = allEvents().find(
+      (e) =>
+        e.date >= today &&
+        (e.type === "Jogo" || e.type === "Torneio") &&
+        (!child ||
+          e.group === "Todos" ||
+          e.group === child.group ||
+          child.group === "Traquinas/Benjamins"),
+    );
+  if (!event)
+    return '<div class="matchday-empty card"><span>⚽</span><h2>Modo Dia de Jogo</h2><p>Não existem jogos ou torneios futuros no calendário.</p><button class="btn btn-secondary" onclick="go(\'calendar\')">Abrir calendário</button></div>';
+  const group =
+      event.group === "Todos" ? child?.group || "Benjamins" : event.group,
+    counts = availabilityCounts(event.id, group),
+    game = state.games.find(
+      (g) =>
+        g.date === event.date && (g.group === group || g.group === event.group),
+    ),
+    request = state.availabilityRequests.find(
+      (r) =>
+        r.eventId === event.id && r.group === group && r.status === "Aberto",
+    ),
+    callup = child
+      ? game &&
+        state.callups.find(
+          (c) =>
+            c.athleteId === child.id &&
+            c.status === "Convocado" &&
+            c.gameId === game.id,
+        )
+      : null,
+    answer = child
+      ? state.gameAvailability.find(
+          (a) =>
+            a.eventId === event.id &&
+            a.athleteId === child.id &&
+            a.group === group,
+        )
+      : null,
+    days = Math.max(
+      0,
+      Math.ceil(
+        (new Date(event.date + "T12:00:00") - new Date(today + "T12:00:00")) /
+          86400000,
+      ),
+    );
+  return `<section class="matchday-hero"><span>Modo Dia de Jogo · ${esc(group)}</span><h2>${esc(event.title)}</h2><p>${days === 0 ? "É hoje!" : `Faltam ${days} dia${days === 1 ? "" : "s"}`}</p></section><div class="matchday-grid"><div class="card matchday-details"><div><span>📅 Data</span><strong>${fmt(event.date)}</strong></div><div><span>🕐 Hora</span><strong>${esc(event.time || "Por definir")}</strong></div><div><span>📍 Local</span><strong>${esc(event.location || "Por definir")}</strong></div><div><span>👕 Equipamento</span><strong>${esc(game?.equipment || "Por definir")}</strong></div></div>${child ? `<div class="card family-match-status"><div><span>Disponibilidade</span><strong>${availabilityIcon(answer?.status || (request ? "Sem resposta" : "Por abrir"))} ${esc(answer?.status || (request ? "Sem resposta" : "Por abrir"))}</strong></div><div><span>Convocatória</span><strong>${callup ? "✅ Convocado" : "⏳ Por definir"}</strong></div>${request ? `<button class="btn btn-primary" onclick="openAvailability('${event.id}','${group}')">${answer ? "Alterar disponibilidade" : "Responder disponibilidade"}</button>` : '<div class="muted">A resposta de disponibilidade ainda não foi aberta pelo clube.</div>'}</div>` : `<div class="card technical-match-status"><div><span>Disponíveis</span><strong>${counts.available}</strong></div><div><span>Indisponíveis</span><strong>${counts.unavailable}</strong></div><div><span>Sem resposta</span><strong>${counts.noAnswer}</strong></div><div class="matchday-actions"><button class="btn btn-secondary" onclick="openAvailability('${event.id}','${group}')">Disponibilidade</button><button class="btn btn-primary" onclick="prepareCallupForEvent('${event.id}','${group}')">Preparar convocatória</button>${game ? `<button class="btn btn-secondary" onclick="openLineup('${game.id}')">Sete inicial</button>` : ""}</div></div>`}</div>${event.location ? `<a class="btn btn-secondary btn-block map-button" target="_blank" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}">📍 Abrir localização</a>` : ""}`;
+}
+
 function home() {
   const today = new Date().toISOString().slice(0, 10),
     active = state.athletes.filter((a) => a.active),
@@ -406,7 +635,7 @@ function home() {
         }
       : null,
   ].filter(Boolean);
-  return `<section class="dashboard-hero"><div><span class="eyebrow">${new Date(today + "T12:00:00").toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" })}</span><h2>Olá, ${esc(user.name)}</h2><p>${todayEvents.length ? `${todayEvents.length} evento(s) marcado(s) para hoje.` : nextEvent ? `Próximo: ${esc(nextEvent.title)} em ${fmt(nextEvent.date)}.` : "Sem eventos futuros marcados."}</p></div><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button></section>
+  return `<section class="dashboard-hero"><div><span class="eyebrow">${new Date(today + "T12:00:00").toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" })}</span><h2>Olá, ${esc(user.name)}</h2><p>${todayEvents.length ? `${todayEvents.length} evento(s) marcado(s) para hoje.` : nextEvent ? `Próximo: ${esc(nextEvent.title)} em ${fmt(nextEvent.date)}.` : "Sem eventos futuros marcados."}</p></div><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button></section>${noticeBoard(2)}
   <div class="home-layout"><section><div class="section"><h3>Hoje e a seguir</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Calendário</button></div><div class="list">${todayEvents.length ? todayEvents.map(eventCard).join("") : nextEvent ? eventCard(nextEvent) : '<div class="card empty">Sem eventos agendados.</div>'}</div>
   <div class="section"><h3>Estado da formação</h3></div><div class="status-grid"><button class="card status-card green" onclick="go('athletes')"><span>🟢 Normal</span><strong>${green}</strong></button><button class="card status-card yellow" onclick="go('dashboard')"><span>🟡 A acompanhar</span><strong>${yellow}</strong></button><button class="card status-card red" onclick="go('dashboard')"><span>🔴 Atenção</span><strong>${red}</strong></button></div>
   ${attention.length ? `<div class="attention-list">${attention.map(({ a, light }) => `<button onclick="openAthlete('${a.id}')">${avatar(a)}<span><b>${esc(a.name)}</b><small>${esc(light.reasons[0] || light.label)}</small></span><i>${light.icon}</i></button>`).join("")}</div>` : ""}
@@ -414,7 +643,7 @@ function home() {
   <aside><div class="section"><h3>Tarefas pendentes</h3><span class="task-count">${tasks.length}</span></div><div class="task-list">${tasks.map((t) => `<button class="card" onclick="${t.action}"><span>${t.icon}</span><b>${esc(t.text)}</b><i>›</i></button>`).join("") || '<div class="card all-good">✓ Não existem tarefas urgentes.</div>'}</div>
   <div class="section"><h3>Faltas comunicadas</h3><button class="btn btn-small btn-ghost" onclick="go('absences')">Gerir</button></div><div class="card mini-summary"><strong>${planned.length}</strong><span>próximas</span><b>${todayAbsences.length} hoje</b></div>
   <div class="section"><h3>Mensalidades</h3><button class="btn btn-small btn-ghost" onclick="go('fees')">Abrir</button></div>${feesStarted ? `<div class="card mini-summary"><strong>${feesPaid}/${active.length}</strong><span>pagas este mês</span><b class="${feesMissing ? "danger-text" : ""}">${feesMissing} em falta</b></div>` : '<div class="card mini-summary future"><strong>Outubro 2026</strong><span>início das mensalidades</span></div>'}</aside></div>
-  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${availabilityOwner() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button><button class="btn btn-secondary" onclick="generateMonthlySummaries()">✨ Gerar resumos IA</button>' : ""}</div>`;
+  <div class="section"><h3>Ações rápidas</h3></div><div class="quick-grid compact"><button class="btn btn-secondary" onclick="go('matchDay')">🏟️ Modo dia de jogo</button><button class="btn btn-secondary" onclick="go('announcements')">📣 Mural do clube</button><button class="btn btn-secondary" onclick="go('weekly')">📊 Resumo semanal</button><button class="btn btn-secondary" onclick="go('absences')">📆 Falta antecipada</button><button class="btn btn-secondary" onclick="view='games';render()">⚽ Jogos e disponibilidade</button><button class="btn btn-secondary" onclick="go('callup')">📋 Novo jogo</button><button class="btn btn-secondary" onclick="go('athletes')">👥 Atletas</button>${availabilityOwner() ? '<button class="btn btn-secondary" onclick="view=\'users\';render()">🔐 Utilizadores</button><button class="btn btn-secondary" onclick="generateMonthlySummaries()">✨ Gerar resumos IA</button>' : ""}</div>`;
 }
 async function generateMonthlySummaries() {
   const month = prompt(
@@ -501,7 +730,7 @@ function parentHome() {
     parentFeesHtml = parentFeesSection(child, today),
     monthlyGoal = parentMonthlyGoal(child, records, today),
     achievements = parentAchievements(child, records, today);
-  return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section><div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
+  return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section>${noticeBoard(2, child.group)}<div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
     requests
       .map((r) => {
         const answer = (state.gameAvailability || []).find(
@@ -2369,6 +2598,10 @@ function render() {
   else if (view === "weekly") b = weekly();
   else if (view === "games") b = games();
   else if (view === "users") b = users();
+  else if (view === "announcements") b = announcementsView();
+  else if (view === "announcementForm") b = announcementFormView();
+  else if (view === "notifications") b = notificationsView();
+  else if (view === "matchDay") b = matchDay();
   else return;
   $("app").innerHTML = shell(b);
 }

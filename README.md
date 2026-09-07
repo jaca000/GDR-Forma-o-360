@@ -1,8 +1,15 @@
-# GDR Formação 360 — v12.1
+# GDR Formação 360 — v13
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Mural de avisos do clube, com destinatários por escalão, prioridade e período de publicação; apenas `josealmanso` publica ou elimina.
+- Notificações internas pessoais com contador de não lidas para novos avisos, disponibilidades por responder e convocatórias.
+- Estado de leitura guardado na Sheet e associado ao utilizador, funcionando em diferentes dispositivos.
+- Modo Dia de Jogo com contagem decrescente, data, hora, local, equipamento, disponibilidade e convocatória.
+- No perfil técnico, o Modo Dia de Jogo apresenta totais e atalhos para disponibilidade, convocatória e sete inicial.
+- No Portal dos Pais, mostra exclusivamente a informação do próprio filho e só permite responder quando o pedido estiver aberto.
 
 - Portal dos Pais completamente renovado: cabeçalho com fotografia, nome, escalão e tendência de evolução.
 - Disponibilidades abertas em destaque no início, com resposta ou alteração imediata para o filho selecionado.
@@ -13,6 +20,10 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Enquanto ainda não houver dados suficientes, é mostrado um acompanhamento discreto, sem mensagens de erro ou “resumo indisponível”.
 - Linguagem adequada aos pais, sem comparações entre crianças, diagnósticos ou exposição das classificações numéricas.
 - Famílias com vários filhos podem alternar entre atletas no topo do portal; todos os dados continuam filtrados no servidor.
+- Mensalidades no Portal dos Pais com situação atual e histórico mensal do próprio filho.
+- Convocatórias publicadas com adversário, data, hora, local, escalão e equipamento.
+- Objetivo do mês escolhido automaticamente a partir da área com maior margem de progressão nos registos atuais.
+- Conquistas automáticas por primeiro treino, assiduidade total, sequência de presenças, empenho, comportamento e convocatórias.
 
 - Portal dos Pais com contas próprias associadas pelo Admin a um ou mais filhos.
 - Filtragem obrigatória no servidor: cada família recebe exclusivamente dados dos filhos associados.
@@ -72,7 +83,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY`, `AVAILABILITY_REQUESTS` e `AI_MONTHLY_SUMMARIES`, bem como os alertas e automatismos.
+`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY`, `AVAILABILITY_REQUESTS`, `AI_MONTHLY_SUMMARIES`, `ANNOUNCEMENTS` e `NOTIFICATION_READS`, bem como os alertas e automatismos.
 
 ## Resumos mensais por IA
 
@@ -110,4 +121,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 13. Cole a mensagem no grupo dos pais e teste o link com a conta familiar.
 14. Configure `OPENAI_API_KEY`, use **Gerar resumos IA** e confirme no Portal dos Pais o texto do mês selecionado.
 
-Versão: **12.1.0**.
+Versão: **13.0.0**.
