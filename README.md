@@ -1,8 +1,16 @@
-# GDR Formação 360 — v14.0
+# GDR Formação 360 — v15.0
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Dashboard técnico totalmente separado por **Traquinas** e **Benjamins**, incluindo atletas, número de treinos, médias, destaques, alertas e índice de treino.
+- Texto automático individual para cada treino, criado em segundo plano a partir de presença, atitude, empenho, comportamento, tags e observação, sem atrasar a gravação.
+- Nova folha `TRAINING_SUMMARIES`, com histórico das análises individuais geradas para cada atleta e treino.
+- Ficha do atleta com análise de desenvolvimento avançada: índice recente, consistência, assiduidade recente, ponto forte, próximo foco e comparação de cada dimensão com o período anterior.
+
+- Cada notificação do mural abre agora diretamente o aviso correspondente numa página individual, sem mostrar a lista completa de avisos.
+- O botão **Ler aviso completo** do dashboard também abre apenas a mensagem selecionada.
 
 - Otimização global do desempenho no login e em todas as gravações.
 - As sessões válidas deixam de reler a folha de utilizadores em cada ação; alterações de acesso invalidam imediatamente essa validação.
@@ -113,7 +121,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY`, `AVAILABILITY_REQUESTS`, `AI_MONTHLY_SUMMARIES`, `ANNOUNCEMENTS`, `NOTIFICATION_READS`, `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`, bem como os alertas e automatismos. A migração não apaga fichas nem dados clínicos existentes.
+`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY`, `AVAILABILITY_REQUESTS`, `AI_MONTHLY_SUMMARIES`, `TRAINING_SUMMARIES`, `ANNOUNCEMENTS`, `NOTIFICATION_READS`, `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`, bem como os alertas e automatismos. A migração não apaga fichas nem dados clínicos existentes.
 
 ## Resumos mensais por IA
 

@@ -15,6 +15,7 @@ let state = {
   gameAvailability: [],
   availabilityRequests: [],
   monthlySummaries: [],
+  trainingSummaries: [],
   safetyProfiles: [],
   announcements: [],
   notificationReads: [],
@@ -27,12 +28,15 @@ let view = "home",
   selectedTrainingId = null,
   feeDraft = null,
   lineupDraft = null,
-  eventDraft = null;
+  eventDraft = null,
+  selectedAnnouncementId = null;
 let availabilityDraft = null;
 let availabilityShareMessage = "";
 let selectedParentAthleteId = null;
 let savingTraining = false;
 let hasLoadedRemoteData = false;
+let dashboardGroup = "Benjamins";
+const narrativeGenerationQueue = new Set();
 
 const $ = (id) => document.getElementById(id);
 const esc = (s = "") =>
@@ -187,6 +191,7 @@ function go(v) {
   selectedAthleteId = null;
   selectedTrainingId = null;
   eventDraft = null;
+  selectedAnnouncementId = null;
   render();
 }
 function goBack() {
@@ -247,6 +252,12 @@ function goBack() {
   if (view === "eventForm") {
     view = eventDraft?.returnView || "calendar";
     eventDraft = null;
+    render();
+    return;
+  }
+  if (view === "announcementDetail") {
+    selectedAnnouncementId = null;
+    view = user?.role === "parent" ? "parentHome" : "home";
     render();
     return;
   }
@@ -379,7 +390,7 @@ function noticeBoard(limit = 3, group = "") {
   return `<div class="section notice-title"><div><span class="section-kicker">Informação do clube</span><h3>Mural GDR</h3></div><button class="btn btn-small btn-ghost" onclick="go('announcements')">${availabilityOwner() ? "Gerir mural" : "Ver todos os avisos"}</button></div><div class="notice-board notice-preview">${notices
     .map(
       (a) =>
-        `<article class="card club-notice notice-compact ${a.priority.toLowerCase()}"><div class="notice-icon">${a.priority === "Urgente" ? "!" : a.priority === "Importante" ? "📣" : "GDR"}</div><div class="grow"><div class="notice-badges">${a.priority !== "Normal" ? `<span class="priority-${a.priority.toLowerCase()}">${esc(a.priority)}</span>` : ""}<span>${esc(announcementAudience(a))}</span>${a.endDate ? `<span>Até ${fmt(a.endDate)}</span>` : ""}</div><strong>${esc(a.title)}</strong><p>${esc(a.message)}</p><button class="notice-read" onclick="go('announcements')">Ler aviso completo <i>→</i></button></div></article>`,
+        `<article class="card club-notice notice-compact ${a.priority.toLowerCase()}"><div class="notice-icon">${a.priority === "Urgente" ? "!" : a.priority === "Importante" ? "📣" : "GDR"}</div><div class="grow"><div class="notice-badges">${a.priority !== "Normal" ? `<span class="priority-${a.priority.toLowerCase()}">${esc(a.priority)}</span>` : ""}<span>${esc(announcementAudience(a))}</span>${a.endDate ? `<span>Até ${fmt(a.endDate)}</span>` : ""}</div><strong>${esc(a.title)}</strong><p>${esc(a.message)}</p><button class="notice-read" onclick="openAnnouncement('${a.id}')">Ler aviso completo <i>→</i></button></div></article>`,
     )
     .join(
       "",
@@ -399,7 +410,8 @@ function notificationItems() {
       icon: a.priority === "Urgente" ? "🚨" : "📣",
       title: a.title,
       text: a.message,
-      action: "announcements",
+      action: "announcementDetail",
+      announcementId: a.id,
     }));
   if (user.role === "parent") {
     const childIds = new Set(state.athletes.map((a) => a.id));
@@ -464,7 +476,7 @@ function notificationsView() {
     items
       .map(
         (n) =>
-          `<button class="card notification-row ${n.read ? "" : "unread"}" onclick="go('${n.action}')"><span>${n.icon}</span><div class="grow"><strong>${esc(n.title)}</strong><small>${esc(n.text)}</small></div><i>›</i></button>`,
+          `<button class="card notification-row ${n.read ? "" : "unread"}" onclick="${n.announcementId ? `openAnnouncement('${n.announcementId}')` : `go('${n.action}')`}"><span>${n.icon}</span><div class="grow"><strong>${esc(n.title)}</strong><small>${esc(n.text)}</small></div><i>›</i></button>`,
       )
       .join("") ||
     '<div class="card empty">Não existem notificações neste momento.</div>'
@@ -545,6 +557,37 @@ function announcementsView() {
       .join("") ||
     '<div class="card empty">Ainda não existem avisos publicados.</div>'
   }</div>`;
+}
+function openAnnouncement(id) {
+  const group =
+      user?.role === "parent"
+        ? state.athletes.find((a) => a.id === selectedParentAthleteId)?.group ||
+          state.athletes[0]?.group ||
+          ""
+        : "",
+    allowed = availabilityOwner()
+      ? state.announcements || []
+      : activeAnnouncements(group);
+  if (!allowed.some((a) => a.id === id))
+    return toast("Este aviso já não está disponível.");
+  selectedAnnouncementId = id;
+  view = "announcementDetail";
+  render();
+}
+function announcementDetailView() {
+  const group =
+      user?.role === "parent"
+        ? state.athletes.find((a) => a.id === selectedParentAthleteId)?.group ||
+          state.athletes[0]?.group ||
+          ""
+        : "",
+    allowed = availabilityOwner()
+      ? state.announcements || []
+      : activeAnnouncements(group),
+    a = allowed.find((item) => item.id === selectedAnnouncementId);
+  if (!a)
+    return '<div class="card empty">Este aviso já não está disponível.</div>';
+  return `<div class="announcement-detail-wrap"><article class="card club-notice notice-full announcement-detail ${a.priority.toLowerCase()}"><div class="notice-icon">${a.priority === "Urgente" ? "!" : a.priority === "Importante" ? "📣" : "GDR"}</div><div class="grow"><div class="notice-badges">${a.priority !== "Normal" ? `<span class="priority-${a.priority.toLowerCase()}">${esc(a.priority)}</span>` : ""}<span>${esc(announcementAudience(a))}</span>${a.endDate ? `<span>Disponível até ${fmt(a.endDate)}</span>` : ""}</div><h2>${esc(a.title)}</h2><div class="announcement-detail-message">${esc(a.message).replace(/\n/g, "<br>")}</div></div></article></div>`;
 }
 function announcementForm() {
   if (!availabilityOwner()) return;
@@ -1116,6 +1159,9 @@ function openAthlete(id) {
   selectedAthleteId = id;
   view = "athleteProfile";
   render();
+  ensureExistingTrainingNarratives(
+    athleteRecords(id).map((record) => record.trainingId),
+  );
 }
 function safetyFor(id) {
   return (state.safetyProfiles || []).find((x) => x.athleteId === id) || null;
@@ -1237,7 +1283,8 @@ function athleteProfile() {
     light = trafficLight(a.id);
   return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2><div class="athlete-meta">${groupBadge(a.group)}<span class="shirt-mini redshirt">🔴 #${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ #${esc(a.whiteNumber || "—")}</span></div><div class="trend ${tr.cls}">${tr.icon} ${tr.label}</div></div><button class="btn btn-small btn-secondary" onclick="openSafety('${a.id}')">🛡️ Segurança</button><button class="btn btn-small btn-secondary" onclick="printAthleteReport('${a.id}')">📄 PDF</button></div>
  <div class="card traffic-detail ${light.cls}"><strong>${light.icon} ${light.label}</strong><div>${light.reasons.map(esc).join(" · ")}</div></div><div class="grid profile-kpis"><div class="card kpi"><span>Assiduidade</span><strong>${attendancePct(a.id)}%</strong></div><div class="card kpi"><span>Empenho</span><strong>${avg(a.id, "effort").toFixed(1)}</strong></div><div class="card kpi"><span>Atitude</span><strong>${avg(a.id, "attitude").toFixed(1)}</strong></div><div class="card kpi"><span>Comportamento</span><strong>${avg(a.id, "behavior").toFixed(1)}</strong></div><div class="card kpi"><span>Treinos</span><strong>${r.length}</strong></div><div class="card kpi"><span>Convocatórias</span><strong>${calls.length}</strong></div></div>
- <div class="section"><h3>Evolução recente</h3></div>${evolutionBars(a.id)}
+ ${athleteDevelopmentPanel(a, r)}
+ <div class="section"><h3>Evolução treino a treino</h3></div>${evolutionBars(a.id)}
  ${
    Object.keys(tc).length
      ? `<div class="section"><h3>Tags registadas</h3></div><div class="tag-cloud">${Object.entries(
@@ -1253,7 +1300,7 @@ function athleteProfile() {
      .slice(0, 20)
      .map(
        (x) =>
-         `<div class="card history-row"><div><strong>${fmt(trainingDate(x.trainingId))}</strong><div class="muted">${esc(x.status)}${x.absenceReason ? ` · ${esc(x.absenceReason)}` : ""}</div></div><div class="grow"></div>${x.status === "Presente" ? `<div class="mini-score">A ${x.attitude} · E ${x.effort} · C ${x.behavior}</div>` : ""}${x.tags?.length ? `<div class="history-tags">${x.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}</div>`,
+         `<div class="card history-row rich-history"><div class="history-date"><strong>${fmt(trainingDate(x.trainingId))}</strong><div class="muted">${esc(x.status)}${x.absenceReason ? ` · ${esc(x.absenceReason)}` : ""}</div></div><div class="grow"><p class="training-narrative">${esc(trainingNarrative(x))}</p>${x.note ? `<small class="coach-note"><b>Observação registada:</b> ${esc(x.note)}</small>` : ""}${x.tags?.length ? `<div class="history-tags">${x.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}</div>${x.status === "Presente" ? `<div class="mini-score">A ${x.attitude} · E ${x.effort} · C ${x.behavior}</div>` : ""}</div>`,
      )
      .join("") || '<div class="empty">Ainda sem registos.</div>'
  }</div>
@@ -1266,7 +1313,67 @@ function athleteProfile() {
        return `<div class="card history-row"><strong>${fmt(g?.date)}</strong><div class="grow"><div>${esc(g?.opponent || "Jogo")}</div><div class="muted">${esc(g?.equipment || "")} · #${esc(shirtNumber(a, g?.equipment || "Vermelho"))}</div></div></div>`;
      })
      .join("") || '<div class="empty">Ainda sem convocatórias.</div>'
- }</div>`;
+}</div>`;
+}
+function athleteDevelopmentPanel(athlete, records) {
+  const present = records.filter((r) => r.status === "Presente"),
+    recent = present.slice(0, 4),
+    previous = present.slice(4, 8),
+    dimensions = [
+      ["Atitude", "attitude", "Disponibilidade e resposta ao treino"],
+      ["Empenho", "effort", "Entrega e intensidade demonstradas"],
+      ["Comportamento", "behavior", "Respeito, foco e integração"],
+    ],
+    mean = (rows, key) =>
+      rows.length
+        ? rows.reduce((sum, row) => sum + Number(row[key] || 0), 0) /
+          rows.length
+        : 0,
+    metrics = dimensions.map(([label, key, help]) => {
+      const current = mean(recent, key),
+        before = mean(previous, key),
+        delta = previous.length ? current - before : 0;
+      return { label, key, help, current, delta };
+    }),
+    ordered = metrics.slice().sort((a, b) => b.current - a.current),
+    strength = ordered[0],
+    focus = ordered[ordered.length - 1],
+    overall = recent.length
+      ? metrics.reduce((sum, item) => sum + item.current, 0) / metrics.length
+      : 0,
+    values = recent.map(
+      (r) =>
+        (Number(r.attitude) + Number(r.effort) + Number(r.behavior)) / 3,
+    ),
+    variance = values.length
+      ? values.reduce((sum, value) => sum + Math.pow(value - overall, 2), 0) /
+        values.length
+      : 0,
+    consistency =
+      values.length < 2
+        ? "Em observação"
+        : Math.sqrt(variance) <= 0.35
+          ? "Muito consistente"
+          : Math.sqrt(variance) <= 0.7
+            ? "Consistente"
+            : "Oscilante",
+    recentAttendanceRows = records.slice(0, 5),
+    recentAttendance = recentAttendanceRows.length
+      ? Math.round(
+          (recentAttendanceRows.filter((r) => r.status === "Presente").length /
+            recentAttendanceRows.length) *
+            100,
+        )
+      : 0,
+    evolution =
+      previous.length && metrics.some((m) => m.delta > 0.25)
+        ? `Nos treinos mais recentes, ${athlete.name} apresenta progressos sobretudo em ${metrics.filter((m) => m.delta > 0.25).map((m) => m.label.toLowerCase()).join(" e ")}.`
+        : previous.length && metrics.some((m) => m.delta < -0.25)
+          ? `Os registos recentes aconselham acompanhamento mais próximo em ${metrics.filter((m) => m.delta < -0.25).map((m) => m.label.toLowerCase()).join(" e ")}.`
+          : `${athlete.name} mantém uma evolução global estável nos registos mais recentes.`;
+  if (!present.length)
+    return '<div class="section"><h3>Análise de desenvolvimento</h3></div><div class="card empty">Ainda não existem presenças suficientes para construir a análise.</div>';
+  return `<div class="section"><div><h3>Análise de desenvolvimento</h3><div class="muted">Últimos ${recent.length} treinos com presença, comparados com o período anterior</div></div></div><div class="development-overview"><div class="card development-story"><span>Leitura atual</span><h4>${esc(evolution)}</h4><p><b>Ponto forte:</b> ${esc(strength.label)} — ${esc(strength.help.toLowerCase())}.</p><p><b>Próximo foco:</b> continuar a desenvolver ${esc(focus.label.toLowerCase())}, mantendo uma abordagem positiva e progressiva.</p></div><div class="card development-facts"><div><span>Índice recente</span><strong>${overall.toFixed(1)}<small>/5</small></strong></div><div><span>Consistência</span><strong>${esc(consistency)}</strong></div><div><span>Assiduidade recente</span><strong>${recentAttendance}%</strong></div></div></div><div class="development-dimensions">${metrics.map((m) => `<div class="card development-dimension"><div><strong>${esc(m.label)}</strong><span class="dimension-trend ${m.delta > 0.2 ? "up" : m.delta < -0.2 ? "down" : "neutral"}">${m.delta > 0.2 ? "↑ Em evolução" : m.delta < -0.2 ? "↓ A acompanhar" : "→ Estável"}</span></div><div class="dimension-track"><i style="width:${Math.max(0, Math.min(100, (m.current / 5) * 100))}%"></i></div><small>${esc(m.help)} · ${m.current.toFixed(1)}/5${previous.length ? ` · ${m.delta >= 0 ? "+" : ""}${m.delta.toFixed(1)} face ao período anterior` : ""}</small></div>`).join("")}</div>`;
 }
 function evolutionBars(id) {
   const rs = recentRecords(id, 8)
@@ -1485,6 +1592,7 @@ async function saveTraining() {
         )
         .concat(result.savedRecords);
     }
+    generateTrainingNarratives(result.training?.id || draft.id);
     draft = null;
     savingTraining = false;
     view = "dashboard";
@@ -1495,6 +1603,57 @@ async function saveTraining() {
     render();
     toast(e.message);
   }
+}
+async function generateTrainingNarratives(trainingId) {
+  try {
+    const result = await api("generateTrainingSummaries", { trainingId });
+    if (!result.summaries) return;
+    const ids = new Set(result.summaries.map((x) => x.id));
+    state.trainingSummaries = (state.trainingSummaries || [])
+      .filter((x) => !ids.has(x.id))
+      .concat(result.summaries);
+    if (
+      view === "trainingSummary" ||
+      view === "athleteProfile" ||
+      view === "parentHome"
+    )
+      render();
+  } catch (_) {}
+}
+async function ensureExistingTrainingNarratives(trainingIds) {
+  const existing = new Set(
+      (state.trainingSummaries || []).map((x) => x.trainingId),
+    ),
+    missing = [...new Set(trainingIds)]
+      .filter(
+        (id) =>
+          id && !existing.has(id) && !narrativeGenerationQueue.has(id),
+      )
+      .slice(0, 6);
+  for (const id of missing) {
+    narrativeGenerationQueue.add(id);
+    await generateTrainingNarratives(id);
+    narrativeGenerationQueue.delete(id);
+  }
+}
+function trainingNarrative(record) {
+  const saved = (state.trainingSummaries || []).find(
+    (x) =>
+      x.trainingId === record.trainingId &&
+      x.athleteId === record.athleteId,
+  );
+  if (saved?.text) return saved.text;
+  if (record.status !== "Presente")
+    return record.status === "Justificada"
+      ? `A ausência deste treino ficou justificada${record.absenceReason ? `: ${record.absenceReason}` : "."}`
+      : `Não esteve presente neste treino${record.absenceReason ? `: ${record.absenceReason}` : "."}`;
+  const qualities = [];
+  if (Number(record.effort) >= 4) qualities.push("bom empenho");
+  if (Number(record.attitude) >= 4) qualities.push("atitude positiva");
+  if (Number(record.behavior) >= 4) qualities.push("comportamento adequado");
+  return qualities.length
+    ? `Participou de forma positiva, demonstrando ${qualities.join(", ")}. A análise detalhada deste treino está a ser preparada automaticamente.`
+    : "Participou no treino. A análise detalhada está a ser preparada automaticamente a partir do registo técnico.";
 }
 
 function recentTrainingCards(limit = 20) {
@@ -1518,6 +1677,7 @@ function openTrainingSummary(id) {
   selectedTrainingId = id;
   view = "trainingSummary";
   render();
+  ensureExistingTrainingNarratives([id]);
 }
 function trainingSummary() {
   const t = state.trainings.find((x) => x.id === selectedTrainingId);
@@ -1537,7 +1697,7 @@ function trainingSummary() {
     records
       .map((r) => {
         const a = state.athletes.find((x) => x.id === r.athleteId);
-        return `<div class="card training-summary-row">${a ? avatar(a) : ""}<div class="grow"><div class="absence-name"><strong>${esc(a?.name || "Atleta removido")}</strong>${a ? groupBadge(a.group) : ""}</div><div class="muted">${esc(r.status)}${r.absenceReason ? ` · ${esc(r.absenceReason)}` : ""}</div>${r.note ? `<div class="training-note">${esc(r.note)}</div>` : ""}${r.tags?.length ? `<div class="history-tags">${r.tags.map((tag) => `<span>${esc(tag)}</span>`).join("")}</div>` : ""}</div>${r.status === "Presente" ? `<div class="mini-score">A ${r.attitude} · E ${r.effort} · C ${r.behavior}</div>` : ""}</div>`;
+        return `<div class="card training-summary-row">${a ? avatar(a) : ""}<div class="grow"><div class="absence-name"><strong>${esc(a?.name || "Atleta removido")}</strong>${a ? groupBadge(a.group) : ""}</div><div class="muted">${esc(r.status)}${r.absenceReason ? ` · ${esc(r.absenceReason)}` : ""}</div><p class="training-narrative">${esc(trainingNarrative(r))}</p>${r.note ? `<small class="coach-note"><b>Observação registada:</b> ${esc(r.note)}</small>` : ""}${r.tags?.length ? `<div class="history-tags">${r.tags.map((tag) => `<span>${esc(tag)}</span>`).join("")}</div>` : ""}</div>${r.status === "Presente" ? `<div class="mini-score">A ${r.attitude} · E ${r.effort} · C ${r.behavior}</div>` : ""}</div>`;
       })
       .join("") ||
     '<div class="card empty">Este treino não tem registos de atletas.</div>'
@@ -1563,10 +1723,14 @@ async function deleteTraining(id) {
   }
 }
 
-function buildAlerts() {
+function buildAlerts(group = "") {
   const alerts = [];
   state.athletes
-    .filter((a) => a.active)
+    .filter(
+      (a) =>
+        a.active &&
+        (!group || a.group === group || a.group === "Traquinas/Benjamins"),
+    )
     .forEach((a) => {
       const rs = recentRecords(a.id, 5),
         att = attendancePct(a.id),
@@ -1605,29 +1769,47 @@ function buildAlerts() {
   return alerts.slice(0, 12);
 }
 function dashboard() {
-  const aa = state.athletes.filter((a) => a.active),
+  const group = dashboardGroup,
+    aa = state.athletes.filter(
+      (a) =>
+        a.active &&
+        (a.group === group || a.group === "Traquinas/Benjamins"),
+    ),
+    groupTrainings = state.trainings.filter(
+      (t) => t.group === group || t.group === "Todos",
+    ),
     rank = aa
       .map((a) => ({ ...a, score: score(a) }))
       .sort((a, b) => b.score - a.score),
-    alerts = buildAlerts(),
-    hi = monthlyHighlights();
-  return `<div class="section"><h3>Dashboard técnico</h3></div><div class="grid"><div class="card kpi"><span>Atletas</span><strong>${aa.length}</strong></div><div class="card kpi"><span>Treinos</span><strong>${state.trainings.length}</strong></div><div class="card kpi"><span>Assiduidade média</span><strong>${aa.length ? Math.round(aa.reduce((s, a) => s + attendancePct(a.id), 0) / aa.length) : 0}%</strong></div><div class="card kpi"><span>Empenho médio</span><strong>${aa.length ? (aa.reduce((s, a) => s + avg(a.id, "effort"), 0) / aa.length).toFixed(1) : "0.0"}</strong></div></div>
+    alerts = buildAlerts(group),
+    hi = monthlyHighlights(group);
+  return `<div class="section dashboard-heading"><div><h3>Dashboard técnico</h3><div class="muted">Análise independente por escalão</div></div><div class="dashboard-group-tabs"><button class="${group === "Traquinas" ? "active" : ""}" onclick="dashboardGroup='Traquinas';render()">Traquinas</button><button class="${group === "Benjamins" ? "active" : ""}" onclick="dashboardGroup='Benjamins';render()">Benjamins</button></div></div><div class="dashboard-group-banner ${group.toLowerCase()}"><span>Escalão</span><strong>${esc(group)}</strong></div><div class="grid"><div class="card kpi"><span>Atletas</span><strong>${aa.length}</strong></div><div class="card kpi"><span>Treinos</span><strong>${groupTrainings.length}</strong></div><div class="card kpi"><span>Assiduidade média</span><strong>${aa.length ? Math.round(aa.reduce((s, a) => s + attendancePct(a.id), 0) / aa.length) : 0}%</strong></div><div class="card kpi"><span>Empenho médio</span><strong>${aa.length ? (aa.reduce((s, a) => s + avg(a.id, "effort"), 0) / aa.length).toFixed(1) : "0.0"}</strong></div></div>
  <div class="section"><h3>Destaques do mês</h3></div>${hi}
  <div class="section"><h3>Alertas e tendências</h3></div><div class="list">${alerts.map((a) => `<div class="card insight ${a.level}"><strong>${a.icon} ${esc(a.title)}</strong><div class="muted">${esc(a.text)}</div></div>`).join("") || '<div class="card empty">Sem alertas relevantes.</div>'}</div>
  <div class="section"><h3>Índice de treino</h3></div><div class="list">${rank.map((a, i) => `<div class="card rank clickable" onclick="openAthlete('${a.id}')"><div class="rankno">${i + 1}</div>${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="muted">${attendancePct(a.id)}% presença · Empenho ${avg(a.id, "effort").toFixed(1)}</div><div class="bar"><i style="width:${a.score}%"></i></div></div><div class="score">${a.score}</div></div>`).join("")}</div>`;
 }
-function monthlyHighlights() {
+function monthlyHighlights(group = "") {
   const now = new Date(),
     mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const tids = new Set(
-    state.trainings.filter((t) => monthKey(t.date) === mk).map((t) => t.id),
+    state.trainings
+      .filter(
+        (t) =>
+          monthKey(t.date) === mk &&
+          (!group || t.group === group || t.group === "Todos"),
+      )
+      .map((t) => t.id),
   );
   const rr = state.records.filter(
     (r) => tids.has(r.trainingId) && r.status === "Presente",
   );
   if (!rr.length)
     return '<div class="card empty">Ainda sem dados suficientes neste mês.</div>';
-  const aa = state.athletes.filter((a) => a.active);
+  const aa = state.athletes.filter(
+    (a) =>
+      a.active &&
+      (!group || a.group === group || a.group === "Traquinas/Benjamins"),
+  );
   const metric = (id, k) => {
     const x = rr.filter((r) => r.athleteId === id && Number(r[k]));
     return x.length ? x.reduce((s, r) => s + Number(r[k]), 0) / x.length : 0;
@@ -2804,6 +2986,7 @@ function render() {
   else if (view === "games") b = games();
   else if (view === "users") b = users();
   else if (view === "announcements") b = announcementsView();
+  else if (view === "announcementDetail") b = announcementDetailView();
   else if (view === "announcementForm") b = announcementFormView();
   else if (view === "notifications") b = notificationsView();
   else if (view === "matchDay") b = matchDay();
