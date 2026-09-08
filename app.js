@@ -119,7 +119,8 @@ async function login() {
     user = j.user;
     localStorage.setItem("gdr360_token", token);
     localStorage.setItem("gdr360_user", JSON.stringify(user));
-    await refresh();
+    if (j.data) state = j.data;
+    else await loadData();
     view = user.role === "parent" ? "parentHome" : "home";
     render();
   } catch (e) {
@@ -133,9 +134,23 @@ function logout() {
   localStorage.removeItem("gdr360_user");
   render();
 }
-async function refresh() {
+let refreshInFlight = null;
+async function loadData() {
   const j = await api("getData");
   state = j.data;
+}
+function refresh() {
+  if (!refreshInFlight) {
+    refreshInFlight = loadData()
+      .then(() => {
+        if (user && token) render();
+      })
+      .catch((e) => toast(e.message))
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return Promise.resolve();
 }
 
 function nav() {
@@ -1369,7 +1384,7 @@ async function saveTraining() {
       return;
     savingTraining = true;
     render();
-    await api("saveTraining", {
+    const result = await api("saveTraining", {
       training: {
         id: draft.id,
         date: draft.date,
@@ -1382,9 +1397,27 @@ async function saveTraining() {
         ...rec(a.id),
       })),
     });
+    if (result.training) {
+      state.trainings = [
+        ...state.trainings.filter((t) => t.id !== result.training.id),
+        result.training,
+      ];
+    }
+    if (result.savedRecords) {
+      const savedIds = new Set(result.savedRecords.map((r) => r.id));
+      const athleteKeys = new Set(
+        result.savedRecords.map((r) => r.trainingId + "|" + r.athleteId),
+      );
+      state.records = state.records
+        .filter(
+          (r) =>
+            !savedIds.has(r.id) &&
+            !athleteKeys.has(r.trainingId + "|" + r.athleteId),
+        )
+        .concat(result.savedRecords);
+    }
     draft = null;
     savingTraining = false;
-    await refresh();
     view = "dashboard";
     render();
     toast("Treino guardado");
@@ -2374,9 +2407,17 @@ async function deleteAvailabilityRequest(id) {
     return;
   try {
     await api("deleteAvailabilityRequest", { id });
+    const eventId = availabilityDraft.event.id,
+      group = availabilityDraft.group;
+    state.availabilityRequests = (state.availabilityRequests || []).filter(
+      (r) => r.id !== id,
+    );
+    state.gameAvailability = (state.gameAvailability || []).filter(
+      (r) => !(r.eventId === eventId && r.group === group),
+    );
     await refresh();
     availabilityShareMessage = "";
-    openAvailability(availabilityDraft.event.id, availabilityDraft.group);
+    openAvailability(eventId, group);
     toast("Pedido de disponibilidade apagado");
   } catch (e) {
     toast(e.message);
@@ -2427,6 +2468,27 @@ async function saveAvailability(prepare = false) {
       eventDate: event.date,
       availability,
     });
+    const savedKeys = new Set(
+      availability.map((x) => event.id + "|" + group + "|" + x.athleteId),
+    );
+    state.gameAvailability = (state.gameAvailability || [])
+      .filter(
+        (x) =>
+          !savedKeys.has(x.eventId + "|" + x.group + "|" + x.athleteId),
+      )
+      .concat(
+        availability.map((x) => ({
+          id: "local_" + event.id + "_" + x.athleteId,
+          eventId: event.id,
+          gameId,
+          athleteId: x.athleteId,
+          group,
+          eventDate: event.date,
+          status: x.status,
+          note: x.note || "",
+          updatedAt: new Date().toISOString(),
+        })),
+      );
     await refresh();
     toast("Disponibilidade guardada");
     if (prepare) prepareCallupForEvent(event.id, group);
@@ -2651,7 +2713,7 @@ function render() {
     $("app").innerHTML =
       '<div class="loading">A carregar GDR Formação 360…</div>';
     try {
-      await refresh();
+      await loadData();
       if (user?.role === "parent") view = "parentHome";
     } catch (e) {
       logout();

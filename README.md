@@ -1,8 +1,13 @@
-# GDR Formação 360 — v13.2
+# GDR Formação 360 — v13.3
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Login acelerado: a autenticação já devolve os dados necessários no mesmo pedido, eliminando uma segunda chamada completa ao Apps Script.
+- Sessões ativas identificadas em cache para evitar percorrer continuamente todo o histórico de sessões; o estado atual do utilizador continua a ser validado na folha `USERS`.
+- Gravação de treinos sem nova leitura integral para deduplicação e sem descarregar novamente toda a base de dados após guardar.
+- O treino e os respetivos registos são devolvidos na resposta e atualizados imediatamente no ecrã, mantendo os identificadores únicos que impedem duplicados.
 
 - Nova área **Segurança do atleta**, com contactos de emergência, pessoas autorizadas a recolher, alertas críticos, medicação de emergência, limitações temporárias e instruções de atuação.
 - A família só consulta e altera a ficha dos filhos associados; o controlo é aplicado também no servidor.
@@ -85,7 +90,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v13.2 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v13.3 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -130,4 +135,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **13.2.0**.
+Versão: **13.3.0**.
