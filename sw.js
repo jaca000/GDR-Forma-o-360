@@ -1,4 +1,4 @@
-const CACHE = "gdr-formacao-360-v13-5";
+const CACHE = "gdr-formacao-360-v14-0";
 const ASSETS = [
   "./",
   "./index.html",
@@ -40,5 +40,16 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => caches.match(event.request)),
+  );
+});
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((windows) => {
+        if (windows.length) return windows[0].focus();
+        return clients.openWindow("./");
+      }),
   );
 });

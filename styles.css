@@ -2146,6 +2146,9 @@ button {
 }
 .matchday-edit-button{margin-top:16px;background:#fff;color:#991b1b;border:0;box-shadow:0 8px 20px #5b000033}
 .matchday-edit-button:hover{background:#fff5f5}
+.phone-alert-card{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:18px}
+.phone-alert-card p{margin:6px 0 0;color:var(--muted)}
+@media(max-width:640px){.phone-alert-card{align-items:stretch;flex-direction:column}.phone-alert-card .btn{width:100%}}
 .matchday-hero span {
   font-size: 10px;
   font-weight: 900;

@@ -32,6 +32,7 @@ let availabilityDraft = null;
 let availabilityShareMessage = "";
 let selectedParentAthleteId = null;
 let savingTraining = false;
+let hasLoadedRemoteData = false;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s = "") =>
@@ -120,7 +121,10 @@ async function login() {
     user = j.user;
     localStorage.setItem("gdr360_token", token);
     localStorage.setItem("gdr360_user", JSON.stringify(user));
-    if (j.data) state = j.data;
+    if (j.data) {
+      state = j.data;
+      hasLoadedRemoteData = true;
+    }
     else await loadData();
     view = user.role === "parent" ? "parentHome" : "home";
     render();
@@ -135,22 +139,23 @@ function logout() {
   localStorage.removeItem("gdr360_user");
   render();
 }
-let refreshInFlight = null;
+let refreshInFlight = null,
+  refreshTimer = null;
 async function loadData() {
   const j = await api("getData");
+  if (hasLoadedRemoteData) notifyDataChanges(state, j.data);
   state = j.data;
+  hasLoadedRemoteData = true;
 }
 function refresh() {
-  if (!refreshInFlight) {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    if (refreshInFlight || !user || !token) return;
     refreshInFlight = loadData()
-      .then(() => {
-        if (user && token) render();
-      })
+      .then(() => render())
       .catch((e) => toast(e.message))
-      .finally(() => {
-        refreshInFlight = null;
-      });
-  }
+      .finally(() => (refreshInFlight = null));
+  }, 12000);
   return Promise.resolve();
 }
 
@@ -451,7 +456,11 @@ async function openNotifications() {
 }
 function notificationsView() {
   const items = notificationItems();
-  return `<div class="section"><div><h3>Notificações</h3><div class="muted">Avisos e ações importantes num só lugar.</div></div></div><div class="list notifications-list">${
+  const enabled =
+    "Notification" in window &&
+    localStorage.getItem("gdr360_phone_alerts") === "on" &&
+    Notification.permission === "granted";
+  return `<div class="section"><div><h3>Notificações</h3><div class="muted">Avisos e ações importantes num só lugar.</div></div></div><div class="card phone-alert-card"><div><strong>📲 Alertas no telemóvel</strong><p>${enabled ? "Os alertas estão ativos neste dispositivo." : "Ativa para receber avisos quando a app estiver aberta ou ativa em segundo plano."}</p></div><button class="btn ${enabled ? "btn-secondary" : "btn-primary"}" onclick="enablePhoneAlerts()">${enabled ? "Alertas ativos" : "Ativar alertas"}</button></div><div class="list notifications-list">${
     items
       .map(
         (n) =>
@@ -460,6 +469,63 @@ function notificationsView() {
       .join("") ||
     '<div class="card empty">Não existem notificações neste momento.</div>'
   }</div>`;
+}
+async function enablePhoneAlerts() {
+  if (!("Notification" in window))
+    return toast("Este dispositivo não suporta notificações.");
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted")
+    return toast("É necessário autorizar as notificações nas definições do telemóvel.");
+  localStorage.setItem("gdr360_phone_alerts", "on");
+  await showPhoneAlert(
+    "Alertas GDR ativados",
+    "Passarás a receber atualizações relevantes da formação.",
+  );
+  render();
+}
+async function showPhoneAlert(title, body) {
+  if (
+    localStorage.getItem("gdr360_phone_alerts") !== "on" ||
+    Notification.permission !== "granted"
+  )
+    return;
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, {
+        body,
+        icon: "./icon-192.png",
+        badge: "./icon-192.png",
+        tag: "gdr360-" + title,
+      });
+    } else new Notification(title, { body, icon: "./icon-192.png" });
+  } catch (_) {}
+}
+function notifyDataChanges(previous, next) {
+  if (
+    !("Notification" in window) ||
+    localStorage.getItem("gdr360_phone_alerts") !== "on" ||
+    Notification.permission !== "granted"
+  )
+    return;
+  const sections = [
+    ["announcements", "Novo aviso do GDR", "Foi publicado ou atualizado um aviso no mural."],
+    ["availabilityRequests", "Disponibilidade atualizada", "Existe uma atualização relativa à disponibilidade para jogos."],
+    ["callups", "Convocatória atualizada", "Foi registada uma alteração numa convocatória."],
+    ["trainings", "Treino atualizado", "Foi registado ou atualizado um treino."],
+    ["records", "Registo de treino atualizado", "Existem novos dados de acompanhamento do atleta."],
+    ["monthlyFees", "Situação atualizada", "Foi atualizada informação na área de mensalidades."],
+    ["events", "Calendário atualizado", "Foi registada uma alteração no calendário da formação."],
+    ["games", "Jogo atualizado", "Foram atualizadas informações de um jogo."],
+    ["safetyProfiles", "Ficha de segurança atualizada", "A informação de segurança do atleta foi atualizada."],
+  ];
+  sections.forEach(([key, title, message]) => {
+    if (
+      JSON.stringify(previous?.[key] || []) !==
+      JSON.stringify(next?.[key] || [])
+    )
+      showPhoneAlert(title, message);
+  });
 }
 function announcementsView() {
   const list = availabilityOwner()
@@ -2758,6 +2824,13 @@ function render() {
   }
   render();
 })();
+setInterval(() => {
+  if (!user || !token || refreshInFlight) return;
+  refreshInFlight = loadData()
+    .then(() => render())
+    .catch(() => {})
+    .finally(() => (refreshInFlight = null));
+}, 60000);
 if ("serviceWorker" in navigator)
   addEventListener("load", () =>
     navigator.serviceWorker.register("./sw.js").catch(() => {}),

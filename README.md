@@ -1,8 +1,18 @@
-# GDR Formação 360 — v13.5
+# GDR Formação 360 — v14.0
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Otimização global do desempenho no login e em todas as gravações.
+- As sessões válidas deixam de reler a folha de utilizadores em cada ação; alterações de acesso invalidam imediatamente essa validação.
+- Os dados de entrada são comprimidos e guardados temporariamente em cache, acelerando logins e reaberturas sem misturar dados entre famílias.
+- Registos múltiplos, incluindo os atletas de um treino, passam a ser escritos em bloco em vez de uma linha de cada vez.
+- Eliminações com vários registos também são processadas em bloco.
+- A sincronização integral após alterações é agrupada e feita depois de um período sem atividade, evitando que uma gravação torne a seguinte lenta.
+- Novo botão **Ativar alertas no telemóvel** na área de notificações, com avisos de mural, disponibilidades, convocatórias, treinos, calendário, mensalidades e ficha de segurança.
+- Os alertas usam apenas os dados autorizados para cada conta; cada família continua a receber exclusivamente informação dos filhos associados.
+- Nesta versão, as notificações do sistema funcionam com a PWA aberta ou ainda ativa em segundo plano. Alertas garantidos com a aplicação totalmente encerrada exigem configurar posteriormente um fornecedor Web Push, como Firebase Cloud Messaging.
 
 - Corrigida a leitura do **Mural GDR** no Portal dos Pais: os avisos ativos voltam a aparecer no dashboard de acordo com as datas e o escalão.
 - Reposta a ligação às folhas `ANNOUNCEMENTS` e `NOTIFICATION_READS`, preservando os avisos já existentes e o estado das notificações.
