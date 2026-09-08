@@ -1,8 +1,11 @@
-# GDR Formação 360 — v13.4
+# GDR Formação 360 — v13.5
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Corrigida a leitura do **Mural GDR** no Portal dos Pais: os avisos ativos voltam a aparecer no dashboard de acordo com as datas e o escalão.
+- Reposta a ligação às folhas `ANNOUNCEMENTS` e `NOTIFICATION_READS`, preservando os avisos já existentes e o estado das notificações.
 
 - Os jogos e torneios podem agora ser editados diretamente no **Modo Dia de Jogo**, exclusivamente pelo utilizador `josealmanso`.
 - É possível corrigir adversário/título, data, hora e local e escolher o equipamento **Vermelho**, **Branco** ou **Por definir**.
