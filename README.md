@@ -1,8 +1,14 @@
-# GDR Formação 360 — v13.1
+# GDR Formação 360 — v13.2
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Nova área **Segurança do atleta**, com contactos de emergência, pessoas autorizadas a recolher, alertas críticos, medicação de emergência, limitações temporárias e instruções de atuação.
+- A família só consulta e altera a ficha dos filhos associados; o controlo é aplicado também no servidor.
+- A equipa técnica dispõe de consulta em contexto de necessidade, sem permissão para alterar; o Admin pode consultar e atualizar.
+- Consentimento explícito obrigatório, confirmação anual visível e histórico de consultas/alterações na folha `SAFETY_ACCESS_LOG`.
+- Botões de chamada direta para os contactos de emergência no telemóvel.
 
 - Mural de avisos do clube, com destinatários por escalão, prioridade e período de publicação; apenas `josealmanso` publica ou elimina.
 - Novo desenho do mural: destaque horizontal, pré-visualização curta, etiquetas claras e leitura completa numa página própria.
@@ -79,12 +85,12 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v12 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v13.2 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
 
-`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY`, `AVAILABILITY_REQUESTS`, `AI_MONTHLY_SUMMARIES`, `ANNOUNCEMENTS` e `NOTIFICATION_READS`, bem como os alertas e automatismos.
+`setup()` acrescenta as folhas/colunas em falta e preserva atletas, fotos, treinos, convocatórias e registos válidos. Remove apenas linhas comprovadamente duplicadas em `RECORDS` — mesmo treino e mesmo atleta — mantendo o registo mais recente. Também cria/atualiza `MONTHLY_FEES`, `EVENTS`, `LINEUPS`, `SETTINGS`, `PLANNED_ABSENCES`, `GAME_AVAILABILITY`, `AVAILABILITY_REQUESTS`, `AI_MONTHLY_SUMMARIES`, `ANNOUNCEMENTS`, `NOTIFICATION_READS`, `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`, bem como os alertas e automatismos. A migração não apaga fichas nem dados clínicos existentes.
 
 ## Resumos mensais por IA
 
@@ -121,5 +127,7 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 12. Num jogo do Calendário, abra Disponibilidade, defina o prazo e use “Abrir pedido e copiar mensagem”.
 13. Cole a mensagem no grupo dos pais e teste o link com a conta familiar.
 14. Configure `OPENAI_API_KEY`, use **Gerar resumos IA** e confirme no Portal dos Pais o texto do mês selecionado.
+15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
+16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **13.1.0**.
+Versão: **13.2.0**.

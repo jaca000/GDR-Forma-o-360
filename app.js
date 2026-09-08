@@ -15,6 +15,7 @@ let state = {
   gameAvailability: [],
   availabilityRequests: [],
   monthlySummaries: [],
+  safetyProfiles: [],
   announcements: [],
   notificationReads: [],
   settings: { feeAmount: 10 },
@@ -170,6 +171,11 @@ function goBack() {
   if (user?.role === "parent") {
     availabilityDraft = null;
     view = "parentHome";
+    render();
+    return;
+  }
+  if (view === "safety") {
+    view = "athleteProfile";
     render();
     return;
   }
@@ -756,7 +762,7 @@ function parentHome() {
       })
       .join("") ||
     '<div class="card empty">Ainda não existem treinos registados.</div>'
-  }</div>${parentCallupsHtml}${parentFeesHtml}</section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Objetivo do mês</h3></div><div class="card parent-goal"><div class="goal-icon">🎯</div><div class="grow"><strong>${esc(monthlyGoal.title)}</strong><p>${esc(monthlyGoal.message)}</p><div class="goal-track"><i style="width:${monthlyGoal.progress}%"></i></div><small>${monthlyGoal.progress}% do objetivo</small></div></div><div class="section"><h3>Conquistas do atleta</h3><span>${achievements.length}</span></div><div class="parent-achievements">${achievements.map((a) => `<div class="card achievement"><span>${a.icon}</span><div><strong>${esc(a.title)}</strong><small>${esc(a.text)}</small></div></div>`).join("")}</div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
+  }</div>${parentCallupsHtml}${parentFeesHtml}</section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Objetivo do mês</h3></div><div class="card parent-goal"><div class="goal-icon">🎯</div><div class="grow"><strong>${esc(monthlyGoal.title)}</strong><p>${esc(monthlyGoal.message)}</p><div class="goal-track"><i style="width:${monthlyGoal.progress}%"></i></div><small>${monthlyGoal.progress}% do objetivo</small></div></div><div class="section"><h3>Conquistas do atleta</h3><span>${achievements.length}</span></div><div class="parent-achievements">${achievements.map((a) => `<div class="card achievement"><span>${a.icon}</span><div><strong>${esc(a.title)}</strong><small>${esc(a.text)}</small></div></div>`).join("")}</div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="openSafety('${child.id}')">🛡️ Segurança do atleta</button><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
 }
 
 function parentEvolutionMessage(child, records, attendance, effort, behavior) {
@@ -1027,6 +1033,37 @@ function openAthlete(id) {
   view = "athleteProfile";
   render();
 }
+function safetyFor(id) {
+  return (state.safetyProfiles || []).find((x) => x.athleteId === id) || null;
+}
+function safetyStale(profile) {
+  if (!profile?.confirmedAt) return true;
+  return Date.now() - new Date(profile.confirmedAt).getTime() > 365 * 86400000;
+}
+function openSafety(id) {
+  selectedAthleteId = id;
+  view = "safety";
+  render();
+  api("logSafetyAccess", { athleteId: id, accessAction: "Consulta", reason: "Abertura da ficha de segurança" }).catch(() => {});
+}
+function safetyView() {
+  const a = state.athletes.find((x) => x.id === selectedAthleteId);
+  if (!a) return '<div class="card empty">Atleta não encontrado.</div>';
+  const p = safetyFor(a.id), editable = admin() || user?.role === "parent", stale = safetyStale(p);
+  const phone = (n) => esc(String(n || "").replace(/[^+\d]/g, ""));
+  if (!editable && !p) return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2>${groupBadge(a.group)}</div></div><div class="card empty">A ficha de segurança ainda não foi confirmada pela família.</div>`;
+  return `<section class="safety-hero"><div class="safety-shield">🛡️</div><div class="grow"><span>Segurança do atleta</span><h2>${esc(a.name)}</h2><div>${groupBadge(a.group)} <b class="safety-status ${stale ? "warning" : "ok"}">${p ? (stale ? "Confirmação anual necessária" : "Informação confirmada") : "Por preencher"}</b></div></div>${p?.confirmedAt ? `<small>Confirmado em ${new Date(p.confirmedAt).toLocaleDateString("pt-PT")}</small>` : ""}</section>
+  ${p?.criticalAlerts ? `<div class="safety-alert"><strong>⚠️ Alerta importante</strong><p>${esc(p.criticalAlerts)}</p></div>` : ""}
+  ${p ? `<div class="safety-grid"><div class="card safety-contact"><span>Contacto principal</span><strong>${esc(p.contact1Name)}</strong><small>${esc(p.contact1Relation)}</small><a class="btn btn-primary" href="tel:${phone(p.contact1Phone)}">📞 ${esc(p.contact1Phone)}</a></div>${p.contact2Name ? `<div class="card safety-contact"><span>Segundo contacto</span><strong>${esc(p.contact2Name)}</strong><small>${esc(p.contact2Relation)}</small><a class="btn btn-secondary" href="tel:${phone(p.contact2Phone)}">📞 ${esc(p.contact2Phone)}</a></div>` : ""}</div><div class="safety-info-grid">${[["💊","Medicação de emergência",p.emergencyMedication],["🏃","Limitações temporárias",p.temporaryLimitations],["🚨","Instruções em emergência",p.emergencyInstructions],["👥","Pessoas autorizadas a recolher",p.authorizedPickup]].map(([i,t,v]) => `<div class="card safety-info"><span>${i}</span><div><strong>${t}</strong><p>${esc(v || "Nada indicado.")}</p></div></div>`).join("")}</div>` : ""}
+  ${editable ? `<div class="section"><h3>${p ? "Atualizar e confirmar" : "Preencher ficha de segurança"}</h3></div><div class="card safety-form"><div class="privacy-note"><strong>🔒 Informação reservada</strong><p>Utilizada apenas para proteção do atleta e atuação em caso de necessidade. A família deve confirmar estes dados pelo menos uma vez por ano.</p></div><div class="form2"><div class="field"><label>Contacto principal *</label><input id="sc1n" value="${esc(p?.contact1Name || "")}" placeholder="Nome completo"></div><div class="field"><label>Relação</label><input id="sc1r" value="${esc(p?.contact1Relation || "")}" placeholder="Mãe, pai, tutor…"></div><div class="field"><label>Telefone principal *</label><input id="sc1p" inputmode="tel" value="${esc(p?.contact1Phone || "")}"></div><div class="field"><label>Segundo contacto</label><input id="sc2n" value="${esc(p?.contact2Name || "")}" placeholder="Nome completo"></div><div class="field"><label>Relação</label><input id="sc2r" value="${esc(p?.contact2Relation || "")}"></div><div class="field"><label>Segundo telefone</label><input id="sc2p" inputmode="tel" value="${esc(p?.contact2Phone || "")}"></div></div><div class="field"><label>Alertas críticos</label><textarea id="scalert" placeholder="Alergias graves, condições essenciais ou cuidados imediatos">${esc(p?.criticalAlerts || "")}</textarea></div><div class="field"><label>Medicação de emergência</label><textarea id="scmed" placeholder="Indicar apenas medicação indispensável e como deve ser utilizada">${esc(p?.emergencyMedication || "")}</textarea></div><div class="field"><label>Limitações temporárias</label><textarea id="sclimit" placeholder="Ex.: não realizar contacto físico até determinada data">${esc(p?.temporaryLimitations || "")}</textarea></div><div class="field"><label>Instruções em caso de emergência</label><textarea id="scinst">${esc(p?.emergencyInstructions || "")}</textarea></div><div class="field"><label>Pessoas autorizadas a recolher o atleta</label><textarea id="scpickup">${esc(p?.authorizedPickup || "")}</textarea></div><label class="consent-check"><input id="scconsent" type="checkbox"> Confirmo que os dados estão corretos e autorizo o seu tratamento exclusivo para segurança e emergência do atleta.</label><button class="btn btn-primary btn-block" onclick="saveSafety('${a.id}')">Guardar e confirmar ficha</button></div>` : '<div class="admin-note">🔒 Consulta reservada. Apenas o Administrador e a família associada podem alterar estes dados.</div>'}`;
+}
+async function saveSafety(athleteId) {
+  try {
+    const value = (id) => $(id)?.value.trim() || "";
+    await api("saveSafetyProfile", { profile: { athleteId, contact1Name:value("sc1n"), contact1Relation:value("sc1r"), contact1Phone:value("sc1p"), contact2Name:value("sc2n"), contact2Relation:value("sc2r"), contact2Phone:value("sc2p"), criticalAlerts:value("scalert"), emergencyMedication:value("scmed"), temporaryLimitations:value("sclimit"), emergencyInstructions:value("scinst"), authorizedPickup:value("scpickup"), consent:!!$("scconsent")?.checked } });
+    await refresh(); render(); toast("Ficha de segurança confirmada");
+  } catch (e) { toast(e.message); }
+}
 function athleteForm(id = "") {
   if (!admin()) return;
   const a = id ? state.athletes.find((x) => x.id === id) : null;
@@ -1114,7 +1151,7 @@ function athleteProfile() {
     calls = athleteCallups(a.id),
     tc = tagsCount(a.id),
     light = trafficLight(a.id);
-  return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2><div class="athlete-meta">${groupBadge(a.group)}<span class="shirt-mini redshirt">🔴 #${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ #${esc(a.whiteNumber || "—")}</span></div><div class="trend ${tr.cls}">${tr.icon} ${tr.label}</div></div><button class="btn btn-small btn-secondary" onclick="printAthleteReport('${a.id}')">📄 PDF</button></div>
+  return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2><div class="athlete-meta">${groupBadge(a.group)}<span class="shirt-mini redshirt">🔴 #${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ #${esc(a.whiteNumber || "—")}</span></div><div class="trend ${tr.cls}">${tr.icon} ${tr.label}</div></div><button class="btn btn-small btn-secondary" onclick="openSafety('${a.id}')">🛡️ Segurança</button><button class="btn btn-small btn-secondary" onclick="printAthleteReport('${a.id}')">📄 PDF</button></div>
  <div class="card traffic-detail ${light.cls}"><strong>${light.icon} ${light.label}</strong><div>${light.reasons.map(esc).join(" · ")}</div></div><div class="grid profile-kpis"><div class="card kpi"><span>Assiduidade</span><strong>${attendancePct(a.id)}%</strong></div><div class="card kpi"><span>Empenho</span><strong>${avg(a.id, "effort").toFixed(1)}</strong></div><div class="card kpi"><span>Atitude</span><strong>${avg(a.id, "attitude").toFixed(1)}</strong></div><div class="card kpi"><span>Comportamento</span><strong>${avg(a.id, "behavior").toFixed(1)}</strong></div><div class="card kpi"><span>Treinos</span><strong>${r.length}</strong></div><div class="card kpi"><span>Convocatórias</span><strong>${calls.length}</strong></div></div>
  <div class="section"><h3>Evolução recente</h3></div>${evolutionBars(a.id)}
  ${
@@ -2587,6 +2624,7 @@ function render() {
   else if (view === "parentHome") b = parentHome();
   else if (view === "athletes") b = athletes();
   else if (view === "athleteProfile") b = athleteProfile();
+  else if (view === "safety") b = safetyView();
   else if (view === "training") b = training();
   else if (view === "trainingSummary") b = trainingSummary();
   else if (view === "dashboard") b = dashboard();
