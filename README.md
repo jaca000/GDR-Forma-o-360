@@ -1,8 +1,13 @@
-# GDR Formação 360 — v13.3
+# GDR Formação 360 — v13.4
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Os jogos e torneios podem agora ser editados diretamente no **Modo Dia de Jogo**, exclusivamente pelo utilizador `josealmanso`.
+- É possível corrigir adversário/título, data, hora e local e escolher o equipamento **Vermelho**, **Branco** ou **Por definir**.
+- A alteração da data preserva o pedido de disponibilidade e as respostas já registadas, atualizando a data associada.
+- O equipamento passa a ser guardado também nos eventos manuais e aparece no Modo Dia de Jogo.
 
 - Login acelerado: a autenticação já devolve os dados necessários no mesmo pedido, eliminando uma segunda chamada completa ao Apps Script.
 - Sessões ativas identificadas em cache para evitar percorrer continuamente todo o histórico de sessões; o estado atual do utilizador continua a ser validado na folha `USERS`.

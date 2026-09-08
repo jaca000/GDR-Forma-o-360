@@ -2144,6 +2144,8 @@ button {
   text-align: center;
   box-shadow: 0 16px 34px rgba(151, 9, 19, 0.2);
 }
+.matchday-edit-button{margin-top:16px;background:#fff;color:#991b1b;border:0;box-shadow:0 8px 20px #5b000033}
+.matchday-edit-button:hover{background:#fff5f5}
 .matchday-hero span {
   font-size: 10px;
   font-weight: 900;

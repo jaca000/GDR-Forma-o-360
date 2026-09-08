@@ -26,7 +26,8 @@ let view = "home",
   selectedAthleteId = null,
   selectedTrainingId = null,
   feeDraft = null,
-  lineupDraft = null;
+  lineupDraft = null,
+  eventDraft = null;
 let availabilityDraft = null;
 let availabilityShareMessage = "";
 let selectedParentAthleteId = null;
@@ -180,6 +181,7 @@ function go(v) {
   callupDraft = null;
   selectedAthleteId = null;
   selectedTrainingId = null;
+  eventDraft = null;
   render();
 }
 function goBack() {
@@ -238,7 +240,8 @@ function goBack() {
     return;
   }
   if (view === "eventForm") {
-    view = "calendar";
+    view = eventDraft?.returnView || "calendar";
+    eventDraft = null;
     render();
     return;
   }
@@ -571,7 +574,7 @@ function matchDay() {
           86400000,
       ),
     );
-  return `<section class="matchday-hero"><span>Modo Dia de Jogo · ${esc(group)}</span><h2>${esc(event.title)}</h2><p>${days === 0 ? "É hoje!" : `Faltam ${days} dia${days === 1 ? "" : "s"}`}</p></section><div class="matchday-grid"><div class="card matchday-details"><div><span>📅 Data</span><strong>${fmt(event.date)}</strong></div><div><span>🕐 Hora</span><strong>${esc(event.time || "Por definir")}</strong></div><div><span>📍 Local</span><strong>${esc(event.location || "Por definir")}</strong></div><div><span>👕 Equipamento</span><strong>${esc(game?.equipment || "Por definir")}</strong></div></div>${child ? `<div class="card family-match-status"><div><span>Disponibilidade</span><strong>${availabilityIcon(answer?.status || (request ? "Sem resposta" : "Por abrir"))} ${esc(answer?.status || (request ? "Sem resposta" : "Por abrir"))}</strong></div><div><span>Convocatória</span><strong>${callup ? "✅ Convocado" : "⏳ Por definir"}</strong></div>${request ? `<button class="btn btn-primary" onclick="openAvailability('${event.id}','${group}')">${answer ? "Alterar disponibilidade" : "Responder disponibilidade"}</button>` : '<div class="muted">A resposta de disponibilidade ainda não foi aberta pelo clube.</div>'}</div>` : `<div class="card technical-match-status"><div><span>Disponíveis</span><strong>${counts.available}</strong></div><div><span>Indisponíveis</span><strong>${counts.unavailable}</strong></div><div><span>Sem resposta</span><strong>${counts.noAnswer}</strong></div><div class="matchday-actions"><button class="btn btn-secondary" onclick="openAvailability('${event.id}','${group}')">Disponibilidade</button><button class="btn btn-primary" onclick="prepareCallupForEvent('${event.id}','${group}')">Preparar convocatória</button>${game ? `<button class="btn btn-secondary" onclick="openLineup('${game.id}')">Sete inicial</button>` : ""}</div></div>`}</div>${event.location ? `<a class="btn btn-secondary btn-block map-button" target="_blank" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}">📍 Abrir localização</a>` : ""}`;
+  return `<section class="matchday-hero"><span>Modo Dia de Jogo · ${esc(group)}</span><h2>${esc(event.title)}</h2><p>${days === 0 ? "É hoje!" : `Faltam ${days} dia${days === 1 ? "" : "s"}`}</p>${availabilityOwner() ? `<button class="btn matchday-edit-button" onclick="editMatchEvent('${event.id}')">✏️ Editar evento</button>` : ""}</section><div class="matchday-grid"><div class="card matchday-details"><div><span>📅 Data</span><strong>${fmt(event.date)}</strong></div><div><span>🕐 Hora</span><strong>${esc(event.time || "Por definir")}</strong></div><div><span>📍 Local</span><strong>${esc(event.location || "Por definir")}</strong></div><div><span>👕 Equipamento</span><strong>${esc(event.equipment || game?.equipment || "Por definir")}</strong></div></div>${child ? `<div class="card family-match-status"><div><span>Disponibilidade</span><strong>${availabilityIcon(answer?.status || (request ? "Sem resposta" : "Por abrir"))} ${esc(answer?.status || (request ? "Sem resposta" : "Por abrir"))}</strong></div><div><span>Convocatória</span><strong>${callup ? "✅ Convocado" : "⏳ Por definir"}</strong></div>${request ? `<button class="btn btn-primary" onclick="openAvailability('${event.id}','${group}')">${answer ? "Alterar disponibilidade" : "Responder disponibilidade"}</button>` : '<div class="muted">A resposta de disponibilidade ainda não foi aberta pelo clube.</div>'}</div>` : `<div class="card technical-match-status"><div><span>Disponíveis</span><strong>${counts.available}</strong></div><div><span>Indisponíveis</span><strong>${counts.unavailable}</strong></div><div><span>Sem resposta</span><strong>${counts.noAnswer}</strong></div><div class="matchday-actions"><button class="btn btn-secondary" onclick="openAvailability('${event.id}','${group}')">Disponibilidade</button><button class="btn btn-primary" onclick="prepareCallupForEvent('${event.id}','${group}')">Preparar convocatória</button>${game ? `<button class="btn btn-secondary" onclick="openLineup('${game.id}')">Sete inicial</button>` : ""}</div></div>`}</div>${event.location ? `<a class="btn btn-secondary btn-block map-button" target="_blank" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}">📍 Abrir localização</a>` : ""}`;
 }
 
 function home() {
@@ -1911,6 +1914,7 @@ function allEvents() {
         time: g.time,
         group: g.group,
         location: g.location,
+        equipment: g.equipment,
         source: "game",
         sourceId: g.id,
       }));
@@ -1965,29 +1969,61 @@ function calendar() {
 }
 function eventForm() {
   if (!admin()) return;
+  eventDraft = null;
+  view = "eventForm";
+  render();
+}
+function editMatchEvent(id) {
+  if (!availabilityOwner()) return toast("Apenas o utilizador josealmanso pode editar este evento.");
+  const e = allEvents().find((x) => x.id === id);
+  if (!e || e.source === "training") return toast("Este evento não pode ser editado aqui.");
+  const game = e.source === "game" ? state.games.find((g) => g.id === e.sourceId) : null;
+  eventDraft = {
+    ...e,
+    title: game?.opponent || e.title,
+    equipment: e.equipment || game?.equipment || "",
+    returnView: "matchDay",
+  };
   view = "eventForm";
   render();
 }
 function eventFormView() {
-  return `<div class="section"><h3>Novo evento</h3></div><div class="card"><div class="field"><label>Tipo</label><select id="et"><option>Torneio</option><option>Outro</option><option>Treino</option><option>Jogo</option></select></div><div class="field"><label>Título</label><input id="en"></div><div class="form2"><div class="field"><label>Data</label><input id="ed" type="date"></div><div class="field"><label>Hora</label><input id="eh" type="time"></div></div><div class="form2"><div class="field"><label>Escalão</label><select id="eg"><option>Todos</option><option>Benjamins</option><option>Traquinas</option></select></div><div class="field"><label>Local</label><input id="el"></div></div><div class="field"><label>Observação</label><textarea id="eo"></textarea></div><button class="btn btn-primary btn-block" onclick="saveEvent()">Guardar evento</button></div>`;
+  const e = eventDraft || {}, editing = !!eventDraft, isGame = e.source === "game";
+  return `<div class="section"><div><h3>${editing ? "Editar evento" : "Novo evento"}</h3>${editing ? '<div class="muted">As alterações ficam visíveis no calendário, nas disponibilidades e no Modo Dia de Jogo.</div>' : ""}</div></div><div class="card"><div class="field"><label>Tipo</label><select id="et" ${isGame ? "disabled" : ""}>${["Torneio", "Outro", "Treino", "Jogo"].map((x) => `<option ${x === (e.type || "Torneio") ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="field"><label>${isGame ? "Adversário" : "Título"}</label><input id="en" value="${esc(e.title || "")}"></div><div class="form2"><div class="field"><label>Data</label><input id="ed" type="date" value="${esc(e.date || "")}"></div><div class="field"><label>Hora</label><input id="eh" type="time" value="${esc(e.time || "")}"></div></div><div class="form2"><div class="field"><label>Escalão</label><select id="eg" ${editing ? "disabled" : ""}>${["Todos", "Benjamins", "Traquinas"].map((x) => `<option ${x === (e.group || "Todos") ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="field"><label>Local</label><input id="el" value="${esc(e.location || "")}" placeholder="Ex.: Faro do Alentejo"></div></div><div class="field"><label>Equipamento</label><select id="ee"><option value="" ${!e.equipment ? "selected" : ""}>Por definir</option><option ${e.equipment === "Vermelho" ? "selected" : ""}>Vermelho</option><option ${e.equipment === "Branco" ? "selected" : ""}>Branco</option></select><small>O equipamento escolhido aparece no Modo Dia de Jogo e no calendário.</small></div>${isGame ? "" : `<div class="field"><label>Observação</label><textarea id="eo">${esc(e.note || "")}</textarea></div>`}<button class="btn btn-primary btn-block" onclick="saveEvent()">${editing ? "Guardar alterações" : "Guardar evento"}</button></div>`;
 }
 async function saveEvent() {
   try {
-    await api("saveEvent", {
-      event: {
+    const previous = eventDraft,
+      payload = {
+        id: previous?.id || "",
+        source: previous?.source || "manual",
+        sourceId: previous?.sourceId || "",
         type: $("et").value,
         title: $("en").value.trim(),
         date: $("ed").value,
         time: $("eh").value,
         group: $("eg").value,
         location: $("el").value.trim(),
-        note: $("eo").value.trim(),
-      },
-    });
-    await refresh();
-    view = "calendar";
+        equipment: $("ee").value,
+        note: $("eo")?.value.trim() || previous?.note || "",
+      };
+    const result = await api("saveEvent", { event: payload });
+    if (payload.source === "game") {
+      const game = state.games.find((g) => g.id === payload.sourceId);
+      if (game) Object.assign(game, { opponent: payload.title, date: payload.date, time: payload.time, location: payload.location, equipment: payload.equipment });
+    } else {
+      const updated = { ...payload, id: result.id, source: "manual", sourceId: "" },
+        index = state.events.findIndex((x) => x.id === result.id);
+      if (index >= 0) state.events[index] = updated;
+      else state.events.push(updated);
+    }
+    state.gameAvailability.filter((x) => x.eventId === payload.id).forEach((x) => x.eventDate = payload.date);
+    const returnView = previous?.returnView || "calendar";
+    eventDraft = null;
+    refresh();
+    view = returnView;
     render();
-    toast("Evento guardado");
+    toast(previous ? "Evento atualizado" : "Evento guardado");
   } catch (e) {
     toast(e.message);
   }
