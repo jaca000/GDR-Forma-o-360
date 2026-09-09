@@ -1,8 +1,15 @@
-# GDR Formação 360 — v15.1
+# GDR Formação 360 — v16.0
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Data de nascimento na ficha do atleta, com cálculo automático da idade.
+- Celebração automática dos aniversários no próprio dia, visível a todos os utilizadores com nome, fotografia, escalão e mensagem de parabéns, sem divulgar a data completa às outras famílias.
+- Notificação interna e alerta no telemóvel para os aniversários do dia.
+- Agenda personalizada de cada criança, reunindo compromissos, disponibilidades, convocatórias, faltas comunicadas e atividade recente.
+- Conquistas ampliadas com marcos reais: presenças consecutivas, 10 treinos, primeira convocatória, evolução reconhecida e destaques técnico-táticos.
+- Nova área **Como ajudar em casa**, com recomendações apropriadas aos 6–10 anos sobre autonomia, brincadeira com bola, apoio emocional, hidratação e descanso.
 
 - Textos de treino revistos com linguagem própria da formação futebolística, distinguindo intensidade, resposta às tarefas, concentração, disciplina, integração coletiva e indicadores técnico-táticos efetivamente assinalados.
 - Novas tags técnicas no registo: qualidade técnica, tomada de decisão, posicionamento, passe e receção, finalização e transição.

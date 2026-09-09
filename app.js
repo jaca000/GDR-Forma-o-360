@@ -19,6 +19,7 @@ let state = {
   safetyProfiles: [],
   announcements: [],
   notificationReads: [],
+  birthdaysToday: [],
   settings: { feeAmount: 10 },
 };
 let view = "home",
@@ -63,6 +64,18 @@ const sortName = (arr) =>
     a.name.localeCompare(b.name, "pt-PT", { sensitivity: "base" }),
   );
 const monthKey = (d) => String(d || "").slice(0, 7);
+const ageFromBirthDate = (date) => {
+  if (!date) return null;
+  const today = new Date(),
+    birth = new Date(date + "T12:00:00");
+  let age = today.getFullYear() - birth.getFullYear();
+  if (
+    today.getMonth() < birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
+  )
+    age--;
+  return age;
+};
 
 function toast(t) {
   const x = document.createElement("div");
@@ -402,6 +415,16 @@ function noticeBoard(limit = 3, group = "") {
       "",
     )}${!notices.length ? '<div class="card empty">Ainda não existem avisos publicados.</div>' : ""}</div>`;
 }
+function birthdayBanner() {
+  const birthdays = state.birthdaysToday || [];
+  if (!birthdays.length) return "";
+  return `<section class="birthday-celebration"><div class="birthday-confetti">🎈 🎉 ⚽ 🎂</div>${birthdays
+    .map(
+      (birthday) =>
+        `<div class="birthday-person">${birthday.photoUrl ? `<img src="${esc(birthday.photoUrl)}" alt="">` : '<span class="birthday-cake">🎂</span>'}<div><span>Hoje estamos em festa!</span><h2>Parabéns, ${esc(birthday.name)}!</h2><p>${esc(birthday.message)}</p><small>${esc(birthday.group)} · ${birthday.age} anos</small></div></div>`,
+    )
+    .join("")}</section>`;
+}
 function notificationItems() {
   if (!user) return [];
   const today = new Date().toISOString().slice(0, 10),
@@ -459,6 +482,15 @@ function notificationItems() {
         });
       });
   }
+  (state.birthdaysToday || []).forEach((birthday) =>
+    items.push({
+      key: `birthday:${birthday.athleteId}:${today}`,
+      icon: "🎂",
+      title: `Parabéns, ${birthday.name}!`,
+      text: birthday.message,
+      action: user.role === "parent" ? "parentHome" : "home",
+    }),
+  );
   return items.map((item) => ({ ...item, read: reads.has(item.key) }));
 }
 async function openNotifications() {
@@ -536,6 +568,7 @@ function notifyDataChanges(previous, next) {
     ["events", "Calendário atualizado", "Foi registada uma alteração no calendário da formação."],
     ["games", "Jogo atualizado", "Foram atualizadas informações de um jogo."],
     ["safetyProfiles", "Ficha de segurança atualizada", "A informação de segurança do atleta foi atualizada."],
+    ["birthdaysToday", "Aniversário na família GDR", "Hoje temos um jovem atleta de parabéns!"],
   ];
   sections.forEach(([key, title, message]) => {
     if (
@@ -777,7 +810,7 @@ function home() {
         }
       : null,
   ].filter(Boolean);
-  return `<section class="dashboard-hero"><div><span class="eyebrow">${new Date(today + "T12:00:00").toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" })}</span><h2>Olá, ${esc(user.name)}</h2><p>${todayEvents.length ? `${todayEvents.length} evento(s) marcado(s) para hoje.` : nextEvent ? `Próximo: ${esc(nextEvent.title)} em ${fmt(nextEvent.date)}.` : "Sem eventos futuros marcados."}</p></div><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button></section>${noticeBoard(2)}
+  return `<section class="dashboard-hero"><div><span class="eyebrow">${new Date(today + "T12:00:00").toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" })}</span><h2>Olá, ${esc(user.name)}</h2><p>${todayEvents.length ? `${todayEvents.length} evento(s) marcado(s) para hoje.` : nextEvent ? `Próximo: ${esc(nextEvent.title)} em ${fmt(nextEvent.date)}.` : "Sem eventos futuros marcados."}</p></div><button class="btn btn-primary" onclick="go('training')">⚡ Registar treino</button></section>${birthdayBanner()}${noticeBoard(2)}
   <div class="home-layout"><section><div class="section"><h3>Hoje e a seguir</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Calendário</button></div><div class="list">${todayEvents.length ? todayEvents.map(eventCard).join("") : nextEvent ? eventCard(nextEvent) : '<div class="card empty">Sem eventos agendados.</div>'}</div>
   <div class="section"><h3>Estado da formação</h3></div><div class="status-grid"><button class="card status-card green" onclick="go('athletes')"><span>🟢 Normal</span><strong>${green}</strong></button><button class="card status-card yellow" onclick="go('dashboard')"><span>🟡 A acompanhar</span><strong>${yellow}</strong></button><button class="card status-card red" onclick="go('dashboard')"><span>🔴 Atenção</span><strong>${red}</strong></button></div>
   ${attention.length ? `<div class="attention-list">${attention.map(({ a, light }) => `<button onclick="openAthlete('${a.id}')">${avatar(a)}<span><b>${esc(a.name)}</b><small>${esc(light.reasons[0] || light.label)}</small></span><i>${light.icon}</i></button>`).join("")}</div>` : ""}
@@ -872,7 +905,7 @@ function parentHome() {
     parentFeesHtml = parentFeesSection(child, today),
     monthlyGoal = parentMonthlyGoal(child, records, today),
     achievements = parentAchievements(child, records, today);
-  return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section>${noticeBoard(2, child.group)}<div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
+  return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section>${birthdayBanner()}${noticeBoard(2, child.group)}<div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
     requests
       .map((r) => {
         const answer = (state.gameAvailability || []).find(
@@ -976,7 +1009,7 @@ function parentFeesSection(child, today) {
           )
           .join("")}</div>`
       : `<p class="muted">${currentMonth < start ? "O histórico ficará disponível aqui a partir da primeira mensalidade." : "Ainda não existem mensalidades registadas."}</p>`
-  }</div>`;
+  }</div>${parentAgenda(child, today)}${parentHomeSupport(child)}`;
 }
 
 function parentMonthlyGoal(child, records, today) {
@@ -1049,11 +1082,20 @@ function parentAchievements(child, records, today) {
     ),
     streak = records.findIndex((record) => record.status !== "Presente"),
     currentStreak = streak < 0 ? records.length : streak,
+    tags = present.flatMap((record) => record.tags || []),
     achievements = [
       {
         icon: "⭐",
         title: "Primeiro treino",
         text: "Primeiro registo da época concluído.",
+      },
+    ];
+  if (!present.length)
+    return [
+      {
+        icon: "🌱",
+        title: "Primeira participação a caminho",
+        text: "A conquista será desbloqueada na primeira presença registada.",
       },
     ];
   if (
@@ -1070,6 +1112,18 @@ function parentAchievements(child, records, today) {
       icon: "🔥",
       title: `${currentStreak} presenças seguidas`,
       text: "Uma excelente sequência de participação.",
+    });
+  if (currentStreak >= 5)
+    achievements.push({
+      icon: "🏆",
+      title: "Cinco presenças consecutivas",
+      text: "Um marco de compromisso e continuidade com a equipa.",
+    });
+  if (present.length >= 10)
+    achievements.push({
+      icon: "🔟",
+      title: "10 treinos realizados",
+      text: "Dez sessões de aprendizagem e crescimento concluídas.",
     });
   if (present.length >= 3 && average("effort") >= 4)
     achievements.push({
@@ -1089,7 +1143,91 @@ function parentAchievements(child, records, today) {
       title: "Primeira convocatória",
       text: "Convocado para representar o GDR.",
     });
-  return achievements.slice(0, 6);
+  if (tags.some((tag) => tag.includes("Evolução")))
+    achievements.push({
+      icon: "📈",
+      title: "Evolução reconhecida",
+      text: "A equipa técnica assinalou uma evolução positiva.",
+    });
+  if (
+    tags.some((tag) =>
+      ["Qualidade técnica", "Tomada de decisão", "Posicionamento", "Passe", "Finalização", "Transição"].some((key) => tag.includes(key)),
+    )
+  )
+    achievements.push({
+      icon: "🎯",
+      title: "Destaque futebolístico",
+      text: "Foi reconhecido um indicador técnico-tático positivo no treino.",
+    });
+  return achievements.slice(0, 8);
+}
+
+function parentAgenda(child, today) {
+  const events = allEvents()
+      .filter(
+        (event) =>
+          event.date >= today &&
+          (event.group === "Todos" ||
+            event.group === child.group ||
+            child.group === "Traquinas/Benjamins"),
+      )
+      .slice(0, 7),
+    recent = athleteRecords(child.id)
+      .slice()
+      .sort((a, b) =>
+        trainingDate(b.trainingId).localeCompare(trainingDate(a.trainingId)),
+      )
+      .slice(0, 2);
+  const eventRows = events.map((event) => {
+    const request = (state.availabilityRequests || []).find(
+        (item) => item.eventId === event.id && item.status === "Aberto",
+      ),
+      answer = request
+        ? (state.gameAvailability || []).find(
+            (item) =>
+              item.eventId === event.id && item.athleteId === child.id,
+          )
+        : null,
+      game = state.games.find(
+        (item) =>
+          item.date === event.date &&
+          (item.group === child.group || item.group === event.group),
+      ),
+      called = game
+        ? state.callups.some(
+            (item) =>
+              item.gameId === game.id &&
+              item.athleteId === child.id &&
+              item.status === "Convocado",
+          )
+        : false,
+      absence = (state.plannedAbsences || []).some(
+        (item) =>
+          item.athleteId === child.id && item.date === event.date && item.active,
+      ),
+      status = absence
+        ? "Falta comunicada"
+        : called
+          ? "Convocado"
+          : request
+            ? answer?.status || "Disponibilidade por responder"
+            : "Agendado";
+    return `<div class="family-agenda-row"><div class="agenda-date"><b>${new Date(event.date + "T12:00:00").getDate()}</b><span>${new Date(event.date + "T12:00:00").toLocaleDateString("pt-PT", { month: "short" }).toUpperCase()}</span></div><div class="grow"><strong>${esc(event.title)}</strong><small>${esc(event.type)} · ${esc(event.time || "Hora por definir")}${event.location ? ` · ${esc(event.location)}` : ""}</small></div><span class="agenda-status ${status.toLowerCase().replace(/\s/g, "-")}">${esc(status)}</span></div>`;
+  });
+  const recentRows = recent.map((record) => {
+    const training = state.trainings.find((item) => item.id === record.trainingId);
+    return `<button class="family-agenda-row completed" onclick="openTrainingSummary('${record.trainingId}')"><div class="agenda-date"><b>✓</b><span>FEITO</span></div><div class="grow"><strong>Treino de ${fmt(training?.date)}</strong><small>${esc(record.status)} · Consultar acompanhamento</small></div><i>›</i></button>`;
+  });
+  return `<div class="section"><div><h3>Agenda de ${esc(child.name)}</h3><div class="muted">Tudo o que diz respeito ao atleta, organizado num só local.</div></div></div><div class="card family-agenda">${eventRows.join("") || '<div class="empty">Sem próximos compromissos.</div>'}${recentRows.length ? `<div class="agenda-divider">Atividade recente</div>${recentRows.join("")}` : ""}</div>`;
+}
+
+function parentHomeSupport(child) {
+  const age = ageFromBirthDate(child.birthDate),
+    young = !age || age <= 7,
+    ballAdvice = young
+      ? "Dez minutos de brincadeira livre com bola, usando os dois pés, sem corrigir cada movimento."
+      : "Dez a quinze minutos de domínio, passe contra uma parede ou condução com ambos os pés, sempre em formato de brincadeira.";
+  return `<div class="section"><div><h3>Como ajudar em casa</h3><div class="muted">Sugestões simples e adequadas aos ${age ? `${age} anos` : "6–10 anos"}.</div></div></div><div class="home-support-grid"><div class="card home-support"><span>🎒</span><strong>Preparar com autonomia</strong><p>${young ? "Preparar o saco em conjunto e deixar a criança identificar o que precisa." : "Incentivar a criança a preparar o saco e confirmar apenas no final."}</p></div><div class="card home-support"><span>⚽</span><strong>Bola e diversão</strong><p>${esc(ballAdvice)}</p></div><div class="card home-support"><span>💬</span><strong>Depois do treino</strong><p>Perguntar “Divertiste-te?” e “O que aprendeste?”, valorizando o esforço em vez do resultado.</p></div><div class="card home-support"><span>💧</span><strong>Recuperar bem</strong><p>Água, refeição equilibrada e uma boa noite de sono são a melhor ajuda para o treino seguinte.</p></div></div><div class="family-support-note">O papel da família é apoiar, encorajar e ajudar a criança a gostar do jogo. As orientações técnicas pertencem à equipa técnica.</div>`;
 }
 
 function absences() {
@@ -1205,7 +1343,7 @@ function athleteForm(id = "") {
   const a = id ? state.athletes.find((x) => x.id === id) : null;
   view = "athleteForm";
   $("app").innerHTML = shell(
-    `<div class="section"><h3>${a ? "Editar" : "Novo"} atleta</h3></div><div class="card"><div class="photo-preview" id="photoPreview">${a?.photoUrl ? `<img src="${esc(a.photoUrl)}">` : "Sem foto"}</div><div class="field"><label>Fotografia</label><input id="aphoto" type="file" accept="image/*" capture="environment" onchange="previewPhoto(this)"><div class="muted">A imagem será reduzida automaticamente antes do envio.</div></div><div class="field"><label>Nome</label><input id="aname" value="${esc(a?.name || "")}"></div><div class="field"><label>Escalão</label><select id="agroup"><option ${a?.group === "Benjamins" ? "selected" : ""}>Benjamins</option><option ${a?.group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${a?.group === "Traquinas/Benjamins" ? "selected" : ""}>Traquinas/Benjamins</option></select></div><div class="form2"><div class="field"><label>N.º equipamento vermelho</label><input id="ared" inputmode="numeric" value="${esc(a?.redNumber || "")}" placeholder="Ex.: 7"></div><div class="field"><label>N.º equipamento branco</label><input id="awhite" inputmode="numeric" value="${esc(a?.whiteNumber || "")}" placeholder="Ex.: 12"></div></div><button class="btn btn-primary btn-block" onclick="saveAthlete('${id}')">Guardar atleta</button></div>`,
+    `<div class="section"><h3>${a ? "Editar" : "Novo"} atleta</h3></div><div class="card"><div class="photo-preview" id="photoPreview">${a?.photoUrl ? `<img src="${esc(a.photoUrl)}">` : "Sem foto"}</div><div class="field"><label>Fotografia</label><input id="aphoto" type="file" accept="image/*" capture="environment" onchange="previewPhoto(this)"><div class="muted">A imagem será reduzida automaticamente antes do envio.</div></div><div class="field"><label>Nome</label><input id="aname" value="${esc(a?.name || "")}"></div><div class="form2"><div class="field"><label>Escalão</label><select id="agroup"><option ${a?.group === "Benjamins" ? "selected" : ""}>Benjamins</option><option ${a?.group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${a?.group === "Traquinas/Benjamins" ? "selected" : ""}>Traquinas/Benjamins</option></select></div><div class="field"><label>Data de nascimento</label><input id="abirth" type="date" max="${new Date().toISOString().slice(0, 10)}" value="${esc(a?.birthDate || "")}"><small>Usada para calcular a idade e assinalar o aniversário na app.</small></div></div><div class="form2"><div class="field"><label>N.º equipamento vermelho</label><input id="ared" inputmode="numeric" value="${esc(a?.redNumber || "")}" placeholder="Ex.: 7"></div><div class="field"><label>N.º equipamento branco</label><input id="awhite" inputmode="numeric" value="${esc(a?.whiteNumber || "")}" placeholder="Ex.: 12"></div></div><button class="btn btn-primary btn-block" onclick="saveAthlete('${id}')">Guardar atleta</button></div>`,
   );
 }
 function previewPhoto(inp) {
@@ -1250,6 +1388,7 @@ async function saveAthlete(id) {
         id,
         name: $("aname").value.trim(),
         group: $("agroup").value,
+        birthDate: $("abirth").value,
         redNumber: $("ared").value.trim(),
         whiteNumber: $("awhite").value.trim(),
       },
@@ -1287,7 +1426,7 @@ function athleteProfile() {
     calls = athleteCallups(a.id),
     tc = tagsCount(a.id),
     light = trafficLight(a.id);
-  return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2><div class="athlete-meta">${groupBadge(a.group)}<span class="shirt-mini redshirt">🔴 #${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ #${esc(a.whiteNumber || "—")}</span></div><div class="trend ${tr.cls}">${tr.icon} ${tr.label}</div></div><button class="btn btn-small btn-secondary" onclick="openSafety('${a.id}')">🛡️ Segurança</button><button class="btn btn-small btn-secondary" onclick="printAthleteReport('${a.id}')">📄 PDF</button></div>
+  return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2><div class="athlete-meta">${groupBadge(a.group)}${a.birthDate ? `<span class="birth-chip">🎂 ${fmt(a.birthDate)} · ${ageFromBirthDate(a.birthDate)} anos</span>` : ""}<span class="shirt-mini redshirt">🔴 #${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ #${esc(a.whiteNumber || "—")}</span></div><div class="trend ${tr.cls}">${tr.icon} ${tr.label}</div></div><button class="btn btn-small btn-secondary" onclick="openSafety('${a.id}')">🛡️ Segurança</button><button class="btn btn-small btn-secondary" onclick="printAthleteReport('${a.id}')">📄 PDF</button></div>
  <div class="card traffic-detail ${light.cls}"><strong>${light.icon} ${light.label}</strong><div>${light.reasons.map(esc).join(" · ")}</div></div><div class="grid profile-kpis"><div class="card kpi"><span>Assiduidade</span><strong>${attendancePct(a.id)}%</strong></div><div class="card kpi"><span>Empenho</span><strong>${avg(a.id, "effort").toFixed(1)}</strong></div><div class="card kpi"><span>Atitude</span><strong>${avg(a.id, "attitude").toFixed(1)}</strong></div><div class="card kpi"><span>Comportamento</span><strong>${avg(a.id, "behavior").toFixed(1)}</strong></div><div class="card kpi"><span>Treinos</span><strong>${r.length}</strong></div><div class="card kpi"><span>Convocatórias</span><strong>${calls.length}</strong></div></div>
  ${athleteDevelopmentPanel(a, r)}
  <div class="section"><h3>Evolução treino a treino</h3></div>${evolutionBars(a.id)}
