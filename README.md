@@ -1,4 +1,6 @@
-# GDR Formação 360 — v16.2
+# GDR Formação 360 — v16.3
+
+Esta revisão elimina a sincronização integral automática a cada minuto. A app passa a fazer uma verificação mínima apenas quando está visível e só recarrega a base de dados quando existe uma alteração real. A troca de utilizadores limpa completamente a sessão anterior e ignora respostas atrasadas pertencentes à conta anterior. O login dispõe ainda de recuperação automática quando a primeira resposta de rede se perde.
 
 Esta versão separa o acesso da sincronização de dados para um login muito mais rápido, mantém uma cópia local segura da última informação carregada e otimiza gravações em lote sem alterar os dados existentes. A área familiar passa também a apresentar sugestões diferentes todos os dias, dirigidas aos pais e adequadas a crianças dos 6 aos 10 anos.
 

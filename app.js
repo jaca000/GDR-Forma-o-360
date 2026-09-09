@@ -47,6 +47,8 @@ let selectedParentAthleteId = null;
 let savingTraining = false;
 let hasLoadedRemoteData = false;
 let dataLoading = false;
+let remoteRevision = "";
+let sessionEpoch = 0;
 let dashboardGroup = "Benjamins";
 const narrativeGenerationQueue = new Set();
 
@@ -97,27 +99,32 @@ function toast(t) {
 }
 async function api(action, payload = {}) {
   if (!C.API_URL) throw new Error("API_URL ainda não configurado em config.js");
-  const controller = new AbortController(),
-    timeout = setTimeout(() => controller.abort(), 25000);
-  let r;
-  try {
-    r = await fetch(C.API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, token, ...payload }),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error.name === "AbortError")
-      throw new Error("A ligação demorou demasiado. Tenta novamente.");
-    throw new Error("Não foi possível ligar ao GDR. Verifica a internet e tenta novamente.");
-  } finally {
-    clearTimeout(timeout);
+  const attempts = action === "login" ? 2 : 1,
+    waitLimit = action === "login" ? 12000 : 25000;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const controller = new AbortController(),
+      timeout = setTimeout(() => controller.abort(), waitLimit);
+    try {
+      const r = await fetch(C.API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action, token, ...payload }),
+          signal: controller.signal,
+        }),
+        j = await r.json().catch(() => null);
+      if (!j) throw new Error("O servidor devolveu uma resposta inválida. Tenta novamente.");
+      if (!j.ok) throw new Error(j.error || "Erro na API");
+      return j;
+    } catch (error) {
+      if (error.name === "AbortError" && attempt + 1 < attempts) continue;
+      if (error.name === "AbortError")
+        throw new Error("A ligação demorou demasiado. Tenta novamente.");
+      if (error.message && error.message !== "Failed to fetch") throw error;
+      throw new Error("Não foi possível ligar ao GDR. Verifica a internet e tenta novamente.");
+    } finally {
+      clearTimeout(timeout);
+    }
   }
-  const j = await r.json().catch(() => null);
-  if (!j) throw new Error("O servidor devolveu uma resposta inválida. Tenta novamente.");
-  if (!j.ok) throw new Error(j.error || "Erro na API");
-  return j;
 }
 function dataCacheKey() {
   return user?.id ? `gdr360_data_${user.id}` : "";
@@ -186,13 +193,14 @@ async function login() {
     });
     token = j.token;
     user = j.user;
+    sessionEpoch++;
     localStorage.setItem("gdr360_token", token);
     localStorage.setItem("gdr360_user", JSON.stringify(user));
     view = user.role === "parent" ? "parentHome" : "home";
     restoreCachedData();
     dataLoading = true;
     render();
-    loadData()
+    loadData(sessionEpoch)
       .then(() => render())
       .catch((e) => toast(e.message))
       .finally(() => {
@@ -205,8 +213,21 @@ async function login() {
 }
 function logout() {
   const oldDataKey = dataCacheKey();
+  sessionEpoch++;
   token = "";
   user = null;
+  state = {
+    athletes: [], trainings: [], records: [], games: [], callups: [], users: [],
+    monthlyFees: [], events: [], lineups: [], plannedAbsences: [],
+    gameAvailability: [], availabilityRequests: [], monthlySummaries: [],
+    trainingSummaries: [], safetyProfiles: [], announcements: [],
+    notificationReads: [], birthdaysToday: [], settings: { feeAmount: 10 },
+  };
+  hasLoadedRemoteData = false;
+  dataLoading = false;
+  remoteRevision = "";
+  refreshInFlight = null;
+  clearTimeout(refreshTimer);
   localStorage.removeItem("gdr360_token");
   localStorage.removeItem("gdr360_user");
   if (oldDataKey) localStorage.removeItem(oldDataKey);
@@ -214,12 +235,26 @@ function logout() {
 }
 let refreshInFlight = null,
   refreshTimer = null;
-async function loadData() {
+async function loadData(epoch = sessionEpoch) {
   const j = await api("getData");
+  if (epoch !== sessionEpoch) return false;
   if (hasLoadedRemoteData) notifyDataChanges(state, j.data);
   state = j.data;
+  remoteRevision = String(j.data.revision || "");
   hasLoadedRemoteData = true;
   rememberData();
+  return true;
+}
+async function checkForUpdates() {
+  if (!user || !token || refreshInFlight || document.hidden) return;
+  try {
+    const status = await api("syncStatus");
+    if (String(status.revision || "") === remoteRevision) return;
+    refreshInFlight = loadData(sessionEpoch)
+      .then(() => render())
+      .catch(() => {})
+      .finally(() => (refreshInFlight = null));
+  } catch (_) {}
 }
 function refresh() {
   clearTimeout(refreshTimer);
@@ -3301,7 +3336,7 @@ function render() {
     if (user?.role === "parent") view = "parentHome";
     dataLoading = true;
     render();
-    loadData()
+    loadData(sessionEpoch)
       .then(() => render())
       .catch((e) => {
         if (!hasLoadedRemoteData) logout();
@@ -3315,13 +3350,10 @@ function render() {
   }
   render();
 })();
-setInterval(() => {
-  if (!user || !token || refreshInFlight) return;
-  refreshInFlight = loadData()
-    .then(() => render())
-    .catch(() => {})
-    .finally(() => (refreshInFlight = null));
-}, 60000);
+setInterval(checkForUpdates, 120000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkForUpdates();
+});
 if ("serviceWorker" in navigator)
   addEventListener("load", () =>
     navigator.serviceWorker.register("./sw.js").catch(() => {}),
