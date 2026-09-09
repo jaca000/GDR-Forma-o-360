@@ -115,11 +115,17 @@ function loginScreen(err = "") {
     new URLSearchParams(location.search).get("portal") === "pais";
   return `<div class="login-page"><div class="login-card"><img class="login-logo" src="logo-formacao-gdr.png"><h1>GDR Formação 360</h1><p>${parentPortal ? "Portal dos Pais" : "Área reservada"}</p>${err ? `<div class="error">${esc(err)}</div>` : ""}<div class="field"><label>Utilizador</label><input id="lu" autocomplete="username"></div><div class="field"><label>PIN</label><input id="lp" class="pin" type="password" inputmode="numeric" maxlength="8"></div><button class="btn btn-primary btn-block" onclick="login()">Entrar</button></div></div>`;
 }
+function loadingScreen(stage = "A preparar a tua área") {
+  return `<div class="app-loading"><div class="loading-brand"><div class="loading-logo-ring"><img src="logo-formacao-gdr.png" alt="GDR Formação 360"></div><h1>GDR Formação 360</h1><p id="loadingStage">${esc(stage)}</p><div class="loading-progress"><i></i></div><div class="loading-steps"><span class="active">Ligação segura</span><span>A carregar dados</span><span>A preparar o portal</span></div><small>Estamos a sincronizar a informação mais recente.</small></div></div>`;
+}
 async function login() {
   try {
+    const username = $("lu").value,
+      pin = $("lp").value;
+    $("app").innerHTML = loadingScreen("A validar o acesso");
     const j = await api("login", {
-      username: $("lu").value,
-      pin: $("lp").value,
+      username,
+      pin,
     });
     token = j.token;
     user = j.user;
@@ -1380,14 +1386,44 @@ function evolutionBars(id) {
     .reverse()
     .filter((r) => r.status === "Presente");
   if (!rs.length) return '<div class="card empty">Sem dados suficientes.</div>';
-  return `<div class="card evolution-chart">${rs
-    .map((r) => {
-      const d = fmt(trainingDate(r.trainingId));
-      const m =
-        (Number(r.attitude) + Number(r.effort) + Number(r.behavior)) / 3;
-      return `<div class="evo-col"><div class="evo-value">${m.toFixed(1)}</div><div class="evo-bar"><i style="height:${(m / 5) * 100}%"></i></div><small>${d.slice(0, 5)}</small></div>`;
-    })
-    .join("")}</div>`;
+  const dimensions = [
+      { key: "attitude", label: "Atitude", cls: "attitude" },
+      { key: "effort", label: "Empenho", cls: "effort" },
+      { key: "behavior", label: "Comportamento", cls: "behavior" },
+    ],
+    x = (index) =>
+      rs.length === 1 ? 400 : 70 + index * (660 / (rs.length - 1)),
+    y = (value) => 210 - ((Math.max(1, Math.min(5, value)) - 1) / 4) * 160,
+    grid = [5, 4, 3, 2, 1]
+      .map(
+        (value) =>
+          `<line x1="55" y1="${y(value)}" x2="745" y2="${y(value)}"></line><text x="32" y="${y(value) + 5}">${value}</text>`,
+      )
+      .join(""),
+    lines = dimensions
+      .map((dimension) => {
+        const points = rs
+          .map(
+            (record, index) =>
+              `${x(index)},${y(Number(record[dimension.key]) || 1)}`,
+          )
+          .join(" "),
+          circles = rs
+            .map(
+              (record, index) =>
+                `<circle cx="${x(index)}" cy="${y(Number(record[dimension.key]) || 1)}" r="6"><title>${dimension.label}: ${Number(record[dimension.key]).toFixed(1)} · ${fmt(trainingDate(record.trainingId))}</title></circle>`,
+            )
+            .join("");
+        return `<g class="trend-series ${dimension.cls}"><polyline points="${points}"></polyline>${circles}</g>`;
+      })
+      .join(""),
+    dates = rs
+      .map(
+        (record, index) =>
+          `<text class="trend-date" x="${x(index)}" y="240">${fmt(trainingDate(record.trainingId)).slice(0, 5)}</text>`,
+      )
+      .join("");
+  return `<div class="card trend-chart-card"><div class="trend-legend">${dimensions.map((dimension) => `<span class="${dimension.cls}"><i></i>${dimension.label}</span>`).join("")}</div><div class="trend-chart-scroll"><svg class="trend-chart" viewBox="0 0 800 255" role="img" aria-label="Evolução de atitude, empenho e comportamento por treino"><g class="trend-grid">${grid}</g>${lines}${dates}</svg></div><div class="trend-chart-note">Cada ponto corresponde à avaliação registada num treino. A escala vai de 1 a 5.</div></div>`;
 }
 
 function training() {
@@ -1487,6 +1523,12 @@ const QUICK_TAGS = [
   "🤝 Espírito de equipa",
   "⚠️ Disciplina",
   "💪 Empenho",
+  "⚽ Qualidade técnica",
+  "🧠 Tomada de decisão",
+  "📍 Posicionamento",
+  "🦶 Passe e receção",
+  "🎯 Finalização",
+  "🔄 Transição",
 ];
 function trainingCard(a) {
   const r = rec(a.id),
@@ -1622,7 +1664,9 @@ async function generateTrainingNarratives(trainingId) {
 }
 async function ensureExistingTrainingNarratives(trainingIds) {
   const existing = new Set(
-      (state.trainingSummaries || []).map((x) => x.trainingId),
+      (state.trainingSummaries || [])
+        .filter((x) => x.version === "2")
+        .map((x) => x.trainingId),
     ),
     missing = [...new Set(trainingIds)]
       .filter(
@@ -1640,7 +1684,8 @@ function trainingNarrative(record) {
   const saved = (state.trainingSummaries || []).find(
     (x) =>
       x.trainingId === record.trainingId &&
-      x.athleteId === record.athleteId,
+      x.athleteId === record.athleteId &&
+      x.version === "2",
   );
   if (saved?.text) return saved.text;
   if (record.status !== "Presente")
@@ -1648,12 +1693,15 @@ function trainingNarrative(record) {
       ? `A ausência deste treino ficou justificada${record.absenceReason ? `: ${record.absenceReason}` : "."}`
       : `Não esteve presente neste treino${record.absenceReason ? `: ${record.absenceReason}` : "."}`;
   const qualities = [];
-  if (Number(record.effort) >= 4) qualities.push("bom empenho");
-  if (Number(record.attitude) >= 4) qualities.push("atitude positiva");
-  if (Number(record.behavior) >= 4) qualities.push("comportamento adequado");
+  if (Number(record.effort) >= 4)
+    qualities.push("boa intensidade e compromisso nas tarefas");
+  if (Number(record.attitude) >= 4)
+    qualities.push("disponibilidade para executar e receber correções");
+  if (Number(record.behavior) >= 4)
+    qualities.push("concentração e integração positiva no trabalho coletivo");
   return qualities.length
-    ? `Participou de forma positiva, demonstrando ${qualities.join(", ")}. A análise detalhada deste treino está a ser preparada automaticamente.`
-    : "Participou no treino. A análise detalhada está a ser preparada automaticamente a partir do registo técnico.";
+    ? `Na sessão apresentou ${qualities.join(", ")}. A análise técnico-tática detalhada está a ser preparada automaticamente a partir dos indicadores assinalados.`
+    : "Participou na sessão com uma resposta global regular. A análise técnico-tática detalhada está a ser preparada automaticamente a partir do registo da equipa técnica.";
 }
 
 function recentTrainingCards(limit = 20) {
@@ -2995,8 +3043,7 @@ function render() {
 }
 (async () => {
   if (user && token) {
-    $("app").innerHTML =
-      '<div class="loading">A carregar GDR Formação 360…</div>';
+    $("app").innerHTML = loadingScreen("A ligar ao GDR Formação 360");
     try {
       await loadData();
       if (user?.role === "parent") view = "parentHome";

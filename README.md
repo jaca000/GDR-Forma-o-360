@@ -1,8 +1,14 @@
-# GDR Formação 360 — v15.0
+# GDR Formação 360 — v15.1
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
 ## Novidades
+
+- Textos de treino revistos com linguagem própria da formação futebolística, distinguindo intensidade, resposta às tarefas, concentração, disciplina, integração coletiva e indicadores técnico-táticos efetivamente assinalados.
+- Novas tags técnicas no registo: qualidade técnica, tomada de decisão, posicionamento, passe e receção, finalização e transição.
+- Os textos antigos são atualizados progressivamente para a nova versão técnica quando a ficha do atleta é consultada.
+- Novo ecrã de carregamento animado, com logótipo, progresso e etapas de sincronização, deixando claro que a aplicação está ativa.
+- O antigo gráfico de barras foi substituído por uma linha temporal com trajetórias separadas para atitude, empenho e comportamento.
 
 - Dashboard técnico totalmente separado por **Traquinas** e **Benjamins**, incluindo atletas, número de treinos, médias, destaques, alertas e índice de treino.
 - Texto automático individual para cada treino, criado em segundo plano a partir de presença, atitude, empenho, comportamento, tags e observação, sem atrasar a gravação.
