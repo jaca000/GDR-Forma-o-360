@@ -1,4 +1,8 @@
-# GDR Formação 360 — v16.0
+# GDR Formação 360 — v16.2
+
+Esta versão separa o acesso da sincronização de dados para um login muito mais rápido, mantém uma cópia local segura da última informação carregada e otimiza gravações em lote sem alterar os dados existentes. A área familiar passa também a apresentar sugestões diferentes todos os dias, dirigidas aos pais e adequadas a crianças dos 6 aos 10 anos.
+
+Inclui ainda fotografia do cartão de jogador na ficha do atleta, consultável pelos utilizadores autorizados e carregada exclusivamente por `josealmanso`, bem como eliminação definitiva de utilizadores reservada ao mesmo utilizador.
 
 Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **flat**: todos os ficheiros ficam na raiz do repositório GitHub.
 
@@ -10,6 +14,9 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 - Agenda personalizada de cada criança, reunindo compromissos, disponibilidades, convocatórias, faltas comunicadas e atividade recente.
 - Conquistas ampliadas com marcos reais: presenças consecutivas, 10 treinos, primeira convocatória, evolução reconhecida e destaques técnico-táticos.
 - Nova área **Como ajudar em casa**, com recomendações apropriadas aos 6–10 anos sobre autonomia, brincadeira com bola, apoio emocional, hidratação e descanso.
+- As sugestões são dirigidas aos pais, renovadas diariamente e adaptadas à idade da criança, combinando formação futebolística, educação, autonomia, respeito, emoções e hábitos saudáveis.
+- Ecrã de recuperação no arranque: um valor antigo inválido, uma falha de rede ou um erro inesperado já não podem deixar a aplicação numa página branca.
+- Depois da autenticação, a área do utilizador abre primeiro e apresenta **A atualizar informação…** enquanto os dados são sincronizados em segundo plano.
 
 - Textos de treino revistos com linguagem própria da formação futebolística, distinguindo intensidade, resposta às tarefas, concentração, disciplina, integração coletiva e indicadores técnico-táticos efetivamente assinalados.
 - Novas tags técnicas no registo: qualidade técnica, tomada de decisão, posicionamento, passe e receção, finalização e transição.

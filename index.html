@@ -10,7 +10,11 @@
 <title>GDR Formação 360</title>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><section class="boot-safe"><img src="logo-formacao-gdr.png" alt="GDR Formação 360"><h1>GDR Formação 360</h1><p>A iniciar a aplicação…</p><div class="boot-spinner"></div><div class="boot-actions"><button onclick="location.reload()">Tentar novamente</button><button onclick="localStorage.removeItem('gdr360_token');localStorage.removeItem('gdr360_user');location.reload()">Voltar ao login</button></div></section></div>
+<script>
+window.addEventListener('error',function(){var b=document.querySelector('.boot-safe');if(b){b.classList.add('has-error');b.querySelector('p').textContent='Não foi possível iniciar a aplicação. Tente novamente ou volte ao login.';}});
+setTimeout(function(){var b=document.querySelector('.boot-safe');if(b){b.classList.add('is-slow');b.querySelector('p').textContent='O arranque está a demorar mais do que o habitual.';}},8000);
+</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>

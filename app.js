@@ -1,6 +1,16 @@
 const C = window.GDR_CONFIG;
+function storedJson(key, fallback = null) {
+  try {
+    const value = localStorage.getItem(key);
+    if (!value || value === "undefined" || value === "null") return fallback;
+    return JSON.parse(value);
+  } catch (_) {
+    localStorage.removeItem(key);
+    return fallback;
+  }
+}
 let token = localStorage.getItem("gdr360_token") || "",
-  user = JSON.parse(localStorage.getItem("gdr360_user") || "null");
+  user = storedJson("gdr360_user");
 let state = {
   athletes: [],
   trainings: [],
@@ -36,6 +46,7 @@ let availabilityShareMessage = "";
 let selectedParentAthleteId = null;
 let savingTraining = false;
 let hasLoadedRemoteData = false;
+let dataLoading = false;
 let dashboardGroup = "Benjamins";
 const narrativeGenerationQueue = new Set();
 
@@ -86,14 +97,47 @@ function toast(t) {
 }
 async function api(action, payload = {}) {
   if (!C.API_URL) throw new Error("API_URL ainda não configurado em config.js");
-  const r = await fetch(C.API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action, token, ...payload }),
-  });
-  const j = await r.json();
+  const controller = new AbortController(),
+    timeout = setTimeout(() => controller.abort(), 25000);
+  let r;
+  try {
+    r = await fetch(C.API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, token, ...payload }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name === "AbortError")
+      throw new Error("A ligação demorou demasiado. Tenta novamente.");
+    throw new Error("Não foi possível ligar ao GDR. Verifica a internet e tenta novamente.");
+  } finally {
+    clearTimeout(timeout);
+  }
+  const j = await r.json().catch(() => null);
+  if (!j) throw new Error("O servidor devolveu uma resposta inválida. Tenta novamente.");
   if (!j.ok) throw new Error(j.error || "Erro na API");
   return j;
+}
+function dataCacheKey() {
+  return user?.id ? `gdr360_data_${user.id}` : "";
+}
+function restoreCachedData() {
+  try {
+    const key = dataCacheKey(), cached = key && localStorage.getItem(key);
+    if (!cached) return false;
+    state = { ...state, ...JSON.parse(cached) };
+    hasLoadedRemoteData = true;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+function rememberData() {
+  try {
+    const key = dataCacheKey();
+    if (key) localStorage.setItem(key, JSON.stringify(state));
+  } catch (_) {}
 }
 function groupClass(g) {
   return g === "Benjamins"
@@ -144,22 +188,28 @@ async function login() {
     user = j.user;
     localStorage.setItem("gdr360_token", token);
     localStorage.setItem("gdr360_user", JSON.stringify(user));
-    if (j.data) {
-      state = j.data;
-      hasLoadedRemoteData = true;
-    }
-    else await loadData();
     view = user.role === "parent" ? "parentHome" : "home";
+    restoreCachedData();
+    dataLoading = true;
     render();
+    loadData()
+      .then(() => render())
+      .catch((e) => toast(e.message))
+      .finally(() => {
+        dataLoading = false;
+        render();
+      });
   } catch (e) {
     $("app").innerHTML = loginScreen(e.message);
   }
 }
 function logout() {
+  const oldDataKey = dataCacheKey();
   token = "";
   user = null;
   localStorage.removeItem("gdr360_token");
   localStorage.removeItem("gdr360_user");
+  if (oldDataKey) localStorage.removeItem(oldDataKey);
   render();
 }
 let refreshInFlight = null,
@@ -169,6 +219,7 @@ async function loadData() {
   if (hasLoadedRemoteData) notifyDataChanges(state, j.data);
   state = j.data;
   hasLoadedRemoteData = true;
+  rememberData();
 }
 function refresh() {
   clearTimeout(refreshTimer);
@@ -201,7 +252,7 @@ function nav() {
 function shell(body) {
   const rootView = user?.role === "parent" ? "parentHome" : "home";
   const unread = notificationItems().filter((n) => !n.read).length;
-  return `<div class="app"><header class="topbar"><div class="brand">${view !== rootView ? '<button class="back-btn" onclick="goBack()" aria-label="Voltar">←</button>' : ""}<img class="brand-logo" src="logo-formacao-gdr.png"><div class="brand-copy"><h1>${C.APP_NAME}</h1><small>${esc(user.name)}</small></div><button class="notification-bell" onclick="openNotifications()" aria-label="Notificações">🔔${unread ? `<b>${unread}</b>` : ""}</button><span class="role">${admin() ? "Administrador" : user?.role === "parent" ? "Família" : "Treinador"}</span><button class="logout" onclick="logout()">Sair</button></div></header><main class="content">${body}</main>${nav()}</div>`;
+  return `<div class="app"><header class="topbar"><div class="brand">${view !== rootView ? '<button class="back-btn" onclick="goBack()" aria-label="Voltar">←</button>' : ""}<img class="brand-logo" src="logo-formacao-gdr.png"><div class="brand-copy"><h1>${C.APP_NAME}</h1><small>${esc(user.name)}</small></div><button class="notification-bell" onclick="openNotifications()" aria-label="Notificações">🔔${unread ? `<b>${unread}</b>` : ""}</button><span class="role">${admin() ? "Administrador" : user?.role === "parent" ? "Família" : "Treinador"}</span><button class="logout" onclick="logout()">Sair</button></div></header>${dataLoading ? '<div class="sync-strip"><i></i><span>A atualizar informação…</span></div>' : ""}<main class="content">${body}</main>${nav()}</div>`;
 }
 function go(v) {
   view = v;
@@ -928,7 +979,7 @@ function parentHome() {
       })
       .join("") ||
     '<div class="card empty">Ainda não existem treinos registados.</div>'
-  }</div>${parentCallupsHtml}${parentFeesHtml}</section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Objetivo do mês</h3></div><div class="card parent-goal"><div class="goal-icon">🎯</div><div class="grow"><strong>${esc(monthlyGoal.title)}</strong><p>${esc(monthlyGoal.message)}</p><div class="goal-track"><i style="width:${monthlyGoal.progress}%"></i></div><small>${monthlyGoal.progress}% do objetivo</small></div></div><div class="section"><h3>Conquistas do atleta</h3><span>${achievements.length}</span></div><div class="parent-achievements">${achievements.map((a) => `<div class="card achievement"><span>${a.icon}</span><div><strong>${esc(a.title)}</strong><small>${esc(a.text)}</small></div></div>`).join("")}</div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="openSafety('${child.id}')">🛡️ Segurança do atleta</button><button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
+  }</div>${parentCallupsHtml}${parentFeesHtml}</section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Objetivo do mês</h3></div><div class="card parent-goal"><div class="goal-icon">🎯</div><div class="grow"><strong>${esc(monthlyGoal.title)}</strong><p>${esc(monthlyGoal.message)}</p><div class="goal-track"><i style="width:${monthlyGoal.progress}%"></i></div><small>${monthlyGoal.progress}% do objetivo</small></div></div><div class="section"><h3>Conquistas do atleta</h3><span>${achievements.length}</span></div><div class="parent-achievements">${achievements.map((a) => `<div class="card achievement"><span>${a.icon}</span><div><strong>${esc(a.title)}</strong><small>${esc(a.text)}</small></div></div>`).join("")}</div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="openSafety('${child.id}')">🛡️ Segurança do atleta</button>${child.playerCardPhotoUrl ? `<a class="btn btn-secondary" href="${esc(child.playerCardPhotoUrl)}" target="_blank" rel="noopener">🪪 Cartão de jogador</a>` : ""}<button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
 }
 
 function parentEvolutionMessage(child, records, attendance, effort, behavior) {
@@ -1224,10 +1275,48 @@ function parentAgenda(child, today) {
 function parentHomeSupport(child) {
   const age = ageFromBirthDate(child.birthDate),
     young = !age || age <= 7,
-    ballAdvice = young
-      ? "Dez minutos de brincadeira livre com bola, usando os dois pés, sem corrigir cada movimento."
-      : "Dez a quinze minutos de domínio, passe contra uma parede ou condução com ambos os pés, sempre em formato de brincadeira.";
-  return `<div class="section"><div><h3>Como ajudar em casa</h3><div class="muted">Sugestões simples e adequadas aos ${age ? `${age} anos` : "6–10 anos"}.</div></div></div><div class="home-support-grid"><div class="card home-support"><span>🎒</span><strong>Preparar com autonomia</strong><p>${young ? "Preparar o saco em conjunto e deixar a criança identificar o que precisa." : "Incentivar a criança a preparar o saco e confirmar apenas no final."}</p></div><div class="card home-support"><span>⚽</span><strong>Bola e diversão</strong><p>${esc(ballAdvice)}</p></div><div class="card home-support"><span>💬</span><strong>Depois do treino</strong><p>Perguntar “Divertiste-te?” e “O que aprendeste?”, valorizando o esforço em vez do resultado.</p></div><div class="card home-support"><span>💧</span><strong>Recuperar bem</strong><p>Água, refeição equilibrada e uma boa noite de sono são a melhor ajuda para o treino seguinte.</p></div></div><div class="family-support-note">O papel da família é apoiar, encorajar e ajudar a criança a gostar do jogo. As orientações técnicas pertencem à equipa técnica.</div>`;
+    dayNumber = Math.floor(Date.now() / 86400000),
+    football = young
+      ? [
+          ["⚽", "Descobrir a bola", "Brincar dez minutos com a bola e experimentar os dois pés, sem corrigir cada movimento."],
+          ["👀", "Olhar antes de jogar", "Num jogo simples, incentivar a criança a olhar em redor antes de passar a bola."],
+          ["🎯", "Um pequeno desafio", "Criar dois alvos e tentar acertar com passes suaves. Celebrar as tentativas, não apenas os acertos."],
+          ["🦶", "Os dois pés contam", "Fazer uma brincadeira curta alternando o pé direito e o esquerdo, sempre sem pressão."],
+          ["🏃", "Mexer e sorrir", "Inventar um pequeno percurso com bola. O objetivo de hoje é movimentar-se e divertir-se."],
+        ]
+      : [
+          ["⚽", "Domínio e passe", "Praticar dez minutos de domínio e passe contra uma parede, alternando os dois pés."],
+          ["👀", "Ler o jogo", "Num momento com bola, desafiar a criança a levantar a cabeça antes de decidir para onde jogar."],
+          ["🎯", "Precisão com propósito", "Escolher pequenos alvos e trabalhar a qualidade do passe, sem contar falhas como castigo."],
+          ["🦶", "Confiança no pé menos usado", "Fazer uma sequência curta com o pé menos confortável e reconhecer cada melhoria."],
+          ["🔄", "Decidir depressa", "Criar duas opções de passe e indicar uma delas no último momento, treinando atenção e decisão."],
+        ],
+    character = [
+      ["🤝", "Ser um bom colega", "Conversar sobre uma forma concreta de ajudar um colega no próximo treino."],
+      ["💬", "Aprender com o dia", "Perguntar: “O que aprendeste?” e ouvir até ao fim, sem transformar a conversa numa avaliação."],
+      ["🌱", "Errar faz parte", "Recordar que um erro é uma oportunidade para tentar novamente e aprender algo novo."],
+      ["❤️", "Respeito primeiro", "Reforçar que respeitar colegas, treinadores e adversários vale tanto como jogar bem."],
+      ["🧠", "Resolver problemas", "Perante uma pequena dificuldade, dar tempo para a criança pensar numa solução antes de ajudar."],
+      ["👏", "Valorizar o esforço", "Elogiar uma atitude concreta — persistência, coragem ou entreajuda — em vez de falar apenas do resultado."],
+      ["😊", "Jogar com alegria", "Perguntar o que mais a fez sorrir no futebol esta semana e dar espaço para contar a história."],
+    ],
+    autonomy = [
+      ["🎒", "Cuidar do equipamento", young ? "Preparar o saco em conjunto e deixar a criança identificar o que falta." : "Deixar a criança preparar o saco e fazer apenas uma confirmação final."],
+      ["⏰", "Cumprir compromissos", "Envolver a criança na preparação da hora de saída, ensinando pontualidade de forma positiva."],
+      ["🧹", "Responsabilidade diária", "Depois de usar a bola ou o equipamento, incentivar a criança a arrumar tudo no lugar."],
+      ["🙋", "Pedir ajuda também é crescer", "Mostrar que reconhecer uma dificuldade e pedir ajuda é um sinal de coragem e maturidade."],
+      ["✅", "Uma tarefa até ao fim", "Escolher uma pequena responsabilidade adequada à idade e deixá-la concluí-la com autonomia."],
+    ],
+    wellbeing = [
+      ["💧", "Hidratar bem", "Incentivar água ao longo do dia e levar a garrafa preparada para o treino."],
+      ["😴", "Dormir para crescer", "Uma rotina calma e uma boa noite de sono ajudam a aprender, recuperar e jogar com energia."],
+      ["🍎", "Energia para brincar", "Escolher em conjunto um lanche simples e equilibrado antes ou depois da atividade."],
+      ["🫶", "Dar nome às emoções", "Ajudar a criança a dizer se está feliz, nervosa ou frustrada, lembrando que todas as emoções são válidas."],
+      ["🌤️", "Tempo para descansar", "Crescer também exige pausas. Hoje, equilibrar atividade, escola, brincadeira livre e descanso."],
+    ],
+    pick = (list, offset) => list[(dayNumber + offset) % list.length],
+    tips = [pick(football, 0), pick(character, 2), pick(autonomy, 4), pick(wellbeing, 6)];
+  return `<div class="section"><div><span class="section-kicker">Para a família · sugestões do dia</span><h3>Como pode apoiar o seu filho</h3><div class="muted">Ideias práticas para os pais aplicarem com crianças de ${age ? `${age} anos` : "6–10 anos"}, renovadas diariamente.</div></div></div><div class="home-support-grid">${tips.map((tip) => `<div class="card home-support"><span>${tip[0]}</span><strong>${esc(tip[1])}</strong><p>${esc(tip[2])}</p></div>`).join("")}</div><div class="family-support-note"><b>Não formamos apenas jogadores, formamos pessoas.</b> O papel da família é acompanhar, encorajar e ajudar a criança a gostar do jogo. As orientações técnicas continuam a pertencer à equipa técnica.</div>`;
 }
 
 function absences() {
@@ -1343,7 +1432,7 @@ function athleteForm(id = "") {
   const a = id ? state.athletes.find((x) => x.id === id) : null;
   view = "athleteForm";
   $("app").innerHTML = shell(
-    `<div class="section"><h3>${a ? "Editar" : "Novo"} atleta</h3></div><div class="card"><div class="photo-preview" id="photoPreview">${a?.photoUrl ? `<img src="${esc(a.photoUrl)}">` : "Sem foto"}</div><div class="field"><label>Fotografia</label><input id="aphoto" type="file" accept="image/*" capture="environment" onchange="previewPhoto(this)"><div class="muted">A imagem será reduzida automaticamente antes do envio.</div></div><div class="field"><label>Nome</label><input id="aname" value="${esc(a?.name || "")}"></div><div class="form2"><div class="field"><label>Escalão</label><select id="agroup"><option ${a?.group === "Benjamins" ? "selected" : ""}>Benjamins</option><option ${a?.group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${a?.group === "Traquinas/Benjamins" ? "selected" : ""}>Traquinas/Benjamins</option></select></div><div class="field"><label>Data de nascimento</label><input id="abirth" type="date" max="${new Date().toISOString().slice(0, 10)}" value="${esc(a?.birthDate || "")}"><small>Usada para calcular a idade e assinalar o aniversário na app.</small></div></div><div class="form2"><div class="field"><label>N.º equipamento vermelho</label><input id="ared" inputmode="numeric" value="${esc(a?.redNumber || "")}" placeholder="Ex.: 7"></div><div class="field"><label>N.º equipamento branco</label><input id="awhite" inputmode="numeric" value="${esc(a?.whiteNumber || "")}" placeholder="Ex.: 12"></div></div><button class="btn btn-primary btn-block" onclick="saveAthlete('${id}')">Guardar atleta</button></div>`,
+    `<div class="section"><h3>${a ? "Editar" : "Novo"} atleta</h3></div><div class="card"><div class="photo-preview" id="photoPreview">${a?.photoUrl ? `<img src="${esc(a.photoUrl)}">` : "Sem foto"}</div><div class="field"><label>Fotografia de perfil</label><input id="aphoto" type="file" accept="image/*" capture="environment" onchange="previewPhoto(this)"><div class="muted">A imagem será reduzida automaticamente antes do envio.</div></div><div class="field"><label>Nome</label><input id="aname" value="${esc(a?.name || "")}"></div><div class="form2"><div class="field"><label>Escalão</label><select id="agroup"><option ${a?.group === "Benjamins" ? "selected" : ""}>Benjamins</option><option ${a?.group === "Traquinas" ? "selected" : ""}>Traquinas</option><option ${a?.group === "Traquinas/Benjamins" ? "selected" : ""}>Traquinas/Benjamins</option></select></div><div class="field"><label>Data de nascimento</label><input id="abirth" type="date" max="${new Date().toISOString().slice(0, 10)}" value="${esc(a?.birthDate || "")}"><small>Usada para calcular a idade e assinalar o aniversário na app.</small></div></div><div class="form2"><div class="field"><label>N.º equipamento vermelho</label><input id="ared" inputmode="numeric" value="${esc(a?.redNumber || "")}" placeholder="Ex.: 7"></div><div class="field"><label>N.º equipamento branco</label><input id="awhite" inputmode="numeric" value="${esc(a?.whiteNumber || "")}" placeholder="Ex.: 12"></div></div><div class="player-card-upload"><div class="section"><div><span class="section-kicker">Documento do atleta</span><h3>Cartão de jogador</h3></div></div><div class="player-card-preview" id="playerCardPreview">${a?.playerCardPhotoUrl ? `<img src="${esc(a.playerCardPhotoUrl)}" alt="Cartão de jogador">` : '<span>🪪</span><b>Ainda sem fotografia do cartão</b>'}</div>${availabilityOwner() ? '<div class="field"><label>Fotografia do cartão de jogador</label><input id="acardphoto" type="file" accept="image/*" capture="environment" onchange="previewPlayerCard(this)"><div class="muted">Fotografe o cartão completo, com boa luz e sem reflexos. Todos podem consultar; apenas o utilizador josealmanso pode carregar ou substituir.</div></div>' : '<div class="muted">Apenas o utilizador josealmanso pode carregar ou substituir esta fotografia.</div>'}</div><button class="btn btn-primary btn-block" onclick="saveAthlete('${id}')">Guardar atleta</button></div>`,
   );
 }
 function previewPhoto(inp) {
@@ -1352,14 +1441,20 @@ function previewPhoto(inp) {
   const u = URL.createObjectURL(f);
   $("photoPreview").innerHTML = `<img src="${u}">`;
 }
-async function resizePhoto(file) {
+function previewPlayerCard(inp) {
+  const f = inp.files[0];
+  if (!f) return;
+  const u = URL.createObjectURL(f);
+  $("playerCardPreview").innerHTML = `<img src="${u}" alt="Pré-visualização do cartão">`;
+}
+async function resizePhoto(file, maxSize = 520, quality = 0.78) {
   return new Promise((res, rej) => {
     const img = new Image(),
       u = URL.createObjectURL(file);
     img.onload = () => {
       let w = img.width,
         h = img.height,
-        max = 520;
+        max = maxSize;
       if (w > h && w > max) {
         h = Math.round((h * max) / w);
         w = max;
@@ -1372,7 +1467,7 @@ async function resizePhoto(file) {
       c.height = h;
       c.getContext("2d").drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(u);
-      res(c.toDataURL("image/jpeg", 0.78));
+      res(c.toDataURL("image/jpeg", quality));
     };
     img.onerror = rej;
     img.src = u;
@@ -1380,9 +1475,12 @@ async function resizePhoto(file) {
 }
 async function saveAthlete(id) {
   try {
-    const file = $("aphoto").files[0];
-    let photoBase64 = "";
+    const file = $("aphoto").files[0],
+      playerCardFile = $("acardphoto")?.files[0];
+    let photoBase64 = "", playerCardPhotoBase64 = "";
     if (file) photoBase64 = await resizePhoto(file);
+    if (playerCardFile)
+      playerCardPhotoBase64 = await resizePhoto(playerCardFile, 1400, 0.86);
     await api("saveAthlete", {
       athlete: {
         id,
@@ -1393,6 +1491,7 @@ async function saveAthlete(id) {
         whiteNumber: $("awhite").value.trim(),
       },
       photoBase64,
+      playerCardPhotoBase64,
     });
     await refresh();
     view = "athletes";
@@ -1426,7 +1525,7 @@ function athleteProfile() {
     calls = athleteCallups(a.id),
     tc = tagsCount(a.id),
     light = trafficLight(a.id);
-  return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2><div class="athlete-meta">${groupBadge(a.group)}${a.birthDate ? `<span class="birth-chip">🎂 ${fmt(a.birthDate)} · ${ageFromBirthDate(a.birthDate)} anos</span>` : ""}<span class="shirt-mini redshirt">🔴 #${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ #${esc(a.whiteNumber || "—")}</span></div><div class="trend ${tr.cls}">${tr.icon} ${tr.label}</div></div><button class="btn btn-small btn-secondary" onclick="openSafety('${a.id}')">🛡️ Segurança</button><button class="btn btn-small btn-secondary" onclick="printAthleteReport('${a.id}')">📄 PDF</button></div>
+  return `<div class="profile-head card">${avatar(a, "avatar-xl")}<div class="grow"><h2>${esc(a.name)}</h2><div class="athlete-meta">${groupBadge(a.group)}${a.birthDate ? `<span class="birth-chip">🎂 ${fmt(a.birthDate)} · ${ageFromBirthDate(a.birthDate)} anos</span>` : ""}<span class="shirt-mini redshirt">🔴 #${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ #${esc(a.whiteNumber || "—")}</span></div><div class="trend ${tr.cls}">${tr.icon} ${tr.label}</div></div>${a.playerCardPhotoUrl ? `<a class="btn btn-small btn-secondary" href="${esc(a.playerCardPhotoUrl)}" target="_blank" rel="noopener">🪪 Ver cartão</a>` : ""}<button class="btn btn-small btn-secondary" onclick="openSafety('${a.id}')">🛡️ Segurança</button><button class="btn btn-small btn-secondary" onclick="printAthleteReport('${a.id}')">📄 PDF</button></div>
  <div class="card traffic-detail ${light.cls}"><strong>${light.icon} ${light.label}</strong><div>${light.reasons.map(esc).join(" · ")}</div></div><div class="grid profile-kpis"><div class="card kpi"><span>Assiduidade</span><strong>${attendancePct(a.id)}%</strong></div><div class="card kpi"><span>Empenho</span><strong>${avg(a.id, "effort").toFixed(1)}</strong></div><div class="card kpi"><span>Atitude</span><strong>${avg(a.id, "attitude").toFixed(1)}</strong></div><div class="card kpi"><span>Comportamento</span><strong>${avg(a.id, "behavior").toFixed(1)}</strong></div><div class="card kpi"><span>Treinos</span><strong>${r.length}</strong></div><div class="card kpi"><span>Convocatórias</span><strong>${calls.length}</strong></div></div>
  ${athleteDevelopmentPanel(a, r)}
  <div class="section"><h3>Evolução treino a treino</h3></div>${evolutionBars(a.id)}
@@ -3093,7 +3192,7 @@ function users() {
                   .join(" · ") || "Sem filhos associados"
               }</div>`
             : ""
-        }</div>${availabilityOwner() ? `<div class="actions"><button class="btn btn-small btn-ghost" onclick="userForm('${u.id}')">Editar</button><button class="btn btn-small btn-danger" onclick="toggleUser('${u.id}',${!u.active})">${u.active ? "Desativar" : "Ativar"}</button></div>` : ""}</div>`,
+        }</div>${availabilityOwner() ? `<div class="actions"><button class="btn btn-small btn-ghost" onclick="userForm('${u.id}')">Editar</button><button class="btn btn-small btn-danger" onclick="toggleUser('${u.id}',${!u.active})">${u.active ? "Desativar" : "Ativar"}</button>${u.id !== user.id ? `<button class="btn btn-small btn-danger" onclick="deleteUser('${u.id}')">Eliminar</button>` : ""}</div>` : ""}</div>`,
     )
     .join("")}</div>`;
 }
@@ -3146,6 +3245,20 @@ async function toggleUser(id, active) {
     toast(e.message);
   }
 }
+async function deleteUser(id) {
+  if (!availabilityOwner() || id === user.id) return;
+  const name = state.users.find((item) => item.id === id)?.name || "selecionado";
+  if (!confirm(`Eliminar definitivamente o utilizador ${name}?\n\nEsta ação retira o acesso à app, mas não elimina atletas nem registos.`)) return;
+  try {
+    await api("deleteUser", { id });
+    state.users = state.users.filter((item) => item.id !== id);
+    rememberData();
+    render();
+    toast("Utilizador eliminado");
+  } catch (e) {
+    toast(e.message);
+  }
+}
 
 function render() {
   if (!user || !token) {
@@ -3153,7 +3266,9 @@ function render() {
     return;
   }
   let b = "";
-  if (view === "home") b = home();
+  if (dataLoading && !hasLoadedRemoteData)
+    b = '<section class="signed-in-loading"><div class="signed-in-mark">✓</div><h2>Entrada concluída</h2><p>Estamos a atualizar a informação mais recente.</p><div class="signed-in-pulse"><i></i><i></i><i></i></div></section>';
+  else if (view === "home") b = home();
   else if (view === "parentHome") b = parentHome();
   else if (view === "athletes") b = athletes();
   else if (view === "athleteProfile") b = athleteProfile();
@@ -3182,14 +3297,21 @@ function render() {
 }
 (async () => {
   if (user && token) {
-    $("app").innerHTML = loadingScreen("A ligar ao GDR Formação 360");
-    try {
-      await loadData();
-      if (user?.role === "parent") view = "parentHome";
-    } catch (e) {
-      logout();
-      return;
-    }
+    restoreCachedData();
+    if (user?.role === "parent") view = "parentHome";
+    dataLoading = true;
+    render();
+    loadData()
+      .then(() => render())
+      .catch((e) => {
+        if (!hasLoadedRemoteData) logout();
+        else toast(e.message);
+      })
+      .finally(() => {
+        dataLoading = false;
+        render();
+      });
+    return;
   }
   render();
 })();
