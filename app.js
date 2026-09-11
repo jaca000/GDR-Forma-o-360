@@ -45,12 +45,16 @@ let availabilityDraft = null;
 let availabilityShareMessage = "";
 let selectedParentAthleteId = null;
 let savingTraining = false;
+let announcementDraftId = null;
 let hasLoadedRemoteData = false;
 let dataLoading = false;
 let remoteRevision = "";
 let sessionEpoch = 0;
 let dashboardGroup = "Benjamins";
 const narrativeGenerationQueue = new Set();
+const pendingApiRequests = new Map();
+const mutationIds = new Map();
+let activeSaves = 0;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s = "") =>
@@ -97,34 +101,84 @@ function toast(t) {
   document.body.appendChild(x);
   setTimeout(() => x.remove(), 2200);
 }
+function mutationAction(action) {
+  return !["login", "getData", "syncStatus", "mutationStatus", "logSafetyAccess", "markNotificationsRead", "sendWeeklySummary", "generateMonthlySummaries", "generateTrainingSummaries"].includes(action);
+}
+function mutationFingerprint(action, payload) {
+  return action + "|" + JSON.stringify(payload);
+}
+function mutationIdFor(action, payload) {
+  const key = mutationFingerprint(action, payload), existing = mutationIds.get(key);
+  if (existing && Date.now() - existing.createdAt < 30 * 60 * 1000) return existing.id;
+  const value = { id: uid("mut_"), createdAt: Date.now() };
+  mutationIds.set(key, value);
+  return value.id;
+}
+function savingIndicator(show) {
+  activeSaves = Math.max(0, activeSaves + (show ? 1 : -1));
+  document.body.classList.toggle("is-saving", activeSaves > 0);
+  let box = document.getElementById("global-saving");
+  if (activeSaves && !box) {
+    box = document.createElement("div");
+    box.id = "global-saving";
+    box.className = "global-saving";
+    box.innerHTML = '<span class="saving-spinner"></span><div><strong>A guardar…</strong><small>O pedido está protegido contra duplicações. Não é necessário carregar novamente.</small></div>';
+    document.body.appendChild(box);
+  }
+  if (!activeSaves && box) box.remove();
+}
+async function rawApi(action, payload, waitLimit) {
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), waitLimit);
+  try {
+    const r = await fetch(C.API_URL, {
+      method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, token, ...payload }), signal: controller.signal,
+    });
+    const j = await r.json().catch(() => null);
+    if (!j) throw new Error("O servidor devolveu uma resposta inválida. Tenta novamente.");
+    if (!j.ok) throw new Error(j.error || "Erro na API");
+    return j;
+  } finally { clearTimeout(timeout); }
+}
+async function waitForMutation(mutationId) {
+  for (let attempt = 0; attempt < 45; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const status = await rawApi("mutationStatus", { mutationId }, 12000);
+      if (!status.pending) return status;
+    } catch (_) {}
+  }
+  throw new Error("A gravação continua no servidor. Não carregues novamente; atualiza a página dentro de alguns instantes.");
+}
 async function api(action, payload = {}) {
   if (!C.API_URL) throw new Error("API_URL ainda não configurado em config.js");
-  const attempts = action === "login" ? 2 : 1,
-    waitLimit = action === "login" ? 12000 : 25000;
+  const mutating = mutationAction(action),
+    requestKey = mutating ? mutationFingerprint(action, payload) : "",
+    mutationId = mutating ? mutationIdFor(action, payload) : "";
+  if (requestKey && pendingApiRequests.has(requestKey)) return pendingApiRequests.get(requestKey);
+  const request = (async () => {
+    if (mutating) savingIndicator(true);
+    const attempts = action === "login" ? 2 : 1,
+      waitLimit = action === "login" ? 12000 : 25000;
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const controller = new AbortController(),
-      timeout = setTimeout(() => controller.abort(), waitLimit);
     try {
-      const r = await fetch(C.API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action, token, ...payload }),
-          signal: controller.signal,
-        }),
-        j = await r.json().catch(() => null);
-      if (!j) throw new Error("O servidor devolveu uma resposta inválida. Tenta novamente.");
-      if (!j.ok) throw new Error(j.error || "Erro na API");
+      const j = await rawApi(action, mutating ? { ...payload, mutationId } : payload, waitLimit);
+      if (j.pending && mutationId) return await waitForMutation(mutationId);
       return j;
     } catch (error) {
       if (error.name === "AbortError" && attempt + 1 < attempts) continue;
-      if (error.name === "AbortError")
-        throw new Error("A ligação demorou demasiado. Tenta novamente.");
+      if (error.name === "AbortError" && mutationId) return await waitForMutation(mutationId);
+      if (error.name === "AbortError") throw new Error("A ligação demorou demasiado. Tenta novamente.");
       if (error.message && error.message !== "Failed to fetch") throw error;
       throw new Error("Não foi possível ligar ao GDR. Verifica a internet e tenta novamente.");
-    } finally {
-      clearTimeout(timeout);
     }
   }
+  })().finally(() => {
+    if (mutating) savingIndicator(false);
+    if (requestKey) pendingApiRequests.delete(requestKey);
+  });
+  if (requestKey) pendingApiRequests.set(requestKey, request);
+  return request;
 }
 function dataCacheKey() {
   return user?.id ? `gdr360_data_${user.id}` : "";
@@ -716,6 +770,7 @@ function announcementDetailView() {
 }
 function announcementForm() {
   if (!availabilityOwner()) return;
+  announcementDraftId = uid("ann_");
   view = "announcementForm";
   render();
 }
@@ -725,8 +780,9 @@ function announcementFormView() {
 }
 async function saveAnnouncement() {
   try {
-    await api("saveAnnouncement", {
+    const result = await api("saveAnnouncement", {
       announcement: {
+        id: announcementDraftId || (announcementDraftId = uid("ann_")),
         title: $("ant").value.trim(),
         message: $("anm").value.trim(),
         group: $("ang").value,
@@ -736,7 +792,14 @@ async function saveAnnouncement() {
         active: true,
       },
     });
-    await refresh();
+    if (result.announcement) {
+      state.announcements = (state.announcements || [])
+        .filter((item) => item.id !== result.announcement.id)
+        .concat(result.announcement);
+      rememberData();
+    }
+    announcementDraftId = null;
+    refresh();
     view = "announcements";
     render();
     toast("Aviso publicado");
