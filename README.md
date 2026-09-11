@@ -1,4 +1,6 @@
-# GDR Formação 360 — v16.3
+# GDR Formação 360 — v16.4
+
+O menu Atletas inclui agora uma exportação completa para Excel, exclusiva de `josealmanso`, com dados pessoais, escalão, equipamentos, fotografias, cartão de jogador, contas familiares, contactos de emergência, ficha de segurança e indicadores desportivos. O ficheiro é gerado em CSV UTF-8 compatível com Excel e protegido contra fórmulas introduzidas através dos dados.
 
 Esta revisão elimina a sincronização integral automática a cada minuto. A app passa a fazer uma verificação mínima apenas quando está visível e só recarrega a base de dados quando existe uma alteração real. A troca de utilizadores limpa completamente a sessão anterior e ignora respostas atrasadas pertencentes à conta anterior. O login dispõe ainda de recuperação automática quando a primeira resposta de rede se perde.
 

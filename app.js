@@ -1414,7 +1414,7 @@ async function deletePlannedAbsence(id) {
 
 function athletes() {
   const aa = sortName(state.athletes.filter((a) => a.active));
-  return `<div class="section"><h3>Atletas</h3>${admin() ? '<button class="btn btn-primary" onclick="athleteForm()">+ Adicionar</button>' : ""}</div>
+  return `<div class="section"><h3>Atletas</h3><div class="actions">${availabilityOwner() ? '<button class="btn btn-secondary" onclick="exportAthletesExcel()">📊 Exportar para Excel</button>' : ""}${admin() ? '<button class="btn btn-primary" onclick="athleteForm()">+ Adicionar</button>' : ""}</div></div>
  ${!admin() ? '<div class="admin-note">🔒 O treinador pode consultar os atletas. Adicionar, editar e eliminar é exclusivo do Administrador.</div>' : ""}
  <div class="list">${aa
    .map((a) => {
@@ -1422,6 +1422,62 @@ function athletes() {
      return `<div class="card athlete clickable" onclick="openAthlete('${a.id}')">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="shirt-mini redshirt">🔴 ${esc(a.redNumber || "—")}</span><span class="shirt-mini whiteshirt">⚪ ${esc(a.whiteNumber || "—")}</span></div><div class="muted">${attendancePct(a.id)}% presença · ${athleteTrend(a.id).icon} ${athleteTrend(a.id).label}</div></div><span class="traffic ${l.cls}" title="${esc(l.reasons.join(" · "))}">${l.icon}</span>${admin() ? `<div class="actions" onclick="event.stopPropagation()"><button class="btn btn-small btn-ghost" onclick="athleteForm('${a.id}')">Editar</button><button class="btn btn-small btn-danger" onclick="deleteAthlete('${a.id}')">Eliminar</button></div>` : '<span class="chev">›</span>'}</div>`;
    })
    .join("")}</div>`;
+}
+function exportAthletesExcel() {
+  if (!availabilityOwner()) return;
+  if (!confirm("Exportar a lista completa de atletas?\n\nO ficheiro contém dados pessoais e contactos de emergência e deve ser guardado em segurança.")) return;
+  const headers = [
+      "ID", "Nome", "Escalão", "Estado", "Data de nascimento", "Idade",
+      "N.º equipamento vermelho", "N.º equipamento branco", "Fotografia de perfil",
+      "Fotografia do cartão de jogador", "Criado em", "Atualizado em",
+      "Contas familiares", "Utilizadores familiares", "Telefones familiares",
+      "Contacto emergência 1", "Relação 1", "Telefone 1",
+      "Contacto emergência 2", "Relação 2", "Telefone 2",
+      "Pessoas autorizadas a recolher", "Alertas críticos", "Medicação de emergência",
+      "Limitações temporárias", "Instruções em emergência", "Ficha confirmada em",
+      "Assiduidade", "Treinos registados", "Convocatórias", "Empenho médio",
+      "Atitude média", "Comportamento médio",
+    ],
+    rows = sortName(state.athletes).map((athlete) => {
+      const safety = safetyFor(athlete.id) || {},
+        families = (state.users || []).filter(
+          (account) => account.role === "parent" && (account.athleteIds || []).includes(athlete.id),
+        ),
+        records = athleteRecords(athlete.id);
+      return [
+        athlete.id, athlete.name, athlete.group, athlete.active ? "Ativo" : "Inativo",
+        athlete.birthDate || "", ageFromBirthDate(athlete.birthDate) ?? "",
+        athlete.redNumber || "", athlete.whiteNumber || "", athlete.photoUrl || "",
+        athlete.playerCardPhotoUrl || "", athlete.createdAt || "", athlete.updatedAt || "",
+        families.map((account) => account.name).join(" | "),
+        families.map((account) => account.username).join(" | "),
+        families.map((account) => account.phone).filter(Boolean).join(" | "),
+        safety.contact1Name || "", safety.contact1Relation || "", safety.contact1Phone || "",
+        safety.contact2Name || "", safety.contact2Relation || "", safety.contact2Phone || "",
+        safety.authorizedPickup || "", safety.criticalAlerts || "",
+        safety.emergencyMedication || "", safety.temporaryLimitations || "",
+        safety.emergencyInstructions || "", safety.confirmedAt || "",
+        `${attendancePct(athlete.id)}%`, records.length, athleteCallups(athlete.id).length,
+        avg(athlete.id, "effort").toFixed(1).replace(".", ","),
+        avg(athlete.id, "attitude").toFixed(1).replace(".", ","),
+        avg(athlete.id, "behavior").toFixed(1).replace(".", ","),
+      ];
+    }),
+    safeCell = (value) => {
+      let text = String(value ?? "").replace(/\r?\n/g, " ");
+      if (/^[=+\-@]/.test(text)) text = "'" + text;
+      return `"${text.replace(/"/g, '""')}"`;
+    },
+    csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(safeCell).join(";")).join("\r\n"),
+    blob = new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `GDR-Atletas-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  toast(`${rows.length} atleta(s) exportado(s) para Excel`);
 }
 function openAthlete(id) {
   selectedAthleteId = id;
