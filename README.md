@@ -1,10 +1,10 @@
-# GDR Formação 360 — v16.6
+# GDR Formação 360 — v17.1
 
 O menu Atletas inclui agora uma exportação completa para Excel, exclusiva de `josealmanso`, com dados pessoais, escalão, equipamentos, fotografias, cartão de jogador, contas familiares, contactos de emergência, ficha de segurança e indicadores desportivos. O ficheiro é gerado em CSV UTF-8 compatível com Excel e protegido contra fórmulas introduzidas através dos dados.
 
 Esta revisão elimina a sincronização integral automática a cada minuto. A app passa a fazer uma verificação mínima apenas quando está visível e só recarrega a base de dados quando existe uma alteração real. A troca de utilizadores limpa completamente a sessão anterior e ignora respostas atrasadas pertencentes à conta anterior. O login dispõe ainda de recuperação automática quando a primeira resposta de rede se perde.
 
-Esta versão mantém o login rápido e atua diretamente na lentidão das gravações. Foi retirada de todas as ações a escrita persistente global que atrasava cada guardar, editar ou eliminar; a invalidação passa a usar memória partilhada rápida. As pesquisas de linhas foram simplificadas, os cabeçalhos deixam de ser relidos em cada escrita e o bloqueio do registo de treino cobre apenas as duas escritas finais. Mantêm-se a identificação única, a proteção contra duplo clique e a confirmação do pedido original, sem alterar os dados existentes.
+Esta versão mantém as otimizações de desempenho e acrescenta a **Coleção GDR 360**: 40 desafios semanais, 10 mensais, 8 conquistas especiais e 4 desafios coletivos, com patches infantis 3D exclusivos, progresso individual, coleção permanente calculada pelo histórico e um mural competitivo separado por escalão. São 62 patches ativos, com imagens de reserva para futuras surpresas da época. Todos os objetivos dependem exclusivamente dos registos dos treinos. Os pais veem os conquistadores do escalão do filho, mas nunca as avaliações nem o progresso detalhado das outras crianças.
 
 Inclui ainda fotografia do cartão de jogador na ficha do atleta, consultável pelos utilizadores autorizados e carregada exclusivamente por `josealmanso`, bem como eliminação definitiva de utilizadores reservada ao mesmo utilizador.
 
@@ -140,7 +140,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v13.3 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v17.1 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -185,4 +185,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **13.3.0**.
+Versão: **17.1.0**.

@@ -28,6 +28,7 @@ let state = {
   trainingSummaries: [],
   safetyProfiles: [],
   announcements: [],
+  challengeBoard: { weekly: null, monthly: null, athletes: [], collective: [] },
   notificationReads: [],
   birthdaysToday: [],
   settings: { feeAmount: 10 },
@@ -275,7 +276,7 @@ function logout() {
     monthlyFees: [], events: [], lineups: [], plannedAbsences: [],
     gameAvailability: [], availabilityRequests: [], monthlySummaries: [],
     trainingSummaries: [], safetyProfiles: [], announcements: [],
-    notificationReads: [], birthdaysToday: [], settings: { feeAmount: 10 },
+    notificationReads: [], birthdaysToday: [], challengeBoard: { weekly: null, monthly: null, athletes: [], collective: [] }, settings: { feeAmount: 10 },
   };
   hasLoadedRemoteData = false;
   dataLoading = false;
@@ -324,7 +325,7 @@ function refresh() {
 
 function nav() {
   if (user?.role === "parent")
-    return `<nav class="nav parent-nav"><button class="${view === "parentHome" ? "active" : ""}" onclick="go('parentHome')"><span class="ico">⌂</span>Início</button><button class="${view === "matchDay" ? "active" : ""}" onclick="go('matchDay')"><span class="ico">⚽</span>Dia de jogo</button><button class="${view === "absences" ? "active" : ""}" onclick="go('absences')"><span class="ico">📆</span>Faltas</button><button class="${view === "calendar" ? "active" : ""}" onclick="go('calendar')"><span class="ico">📅</span>Calendário</button></nav>`;
+    return `<nav class="nav parent-nav"><button class="${view === "parentHome" ? "active" : ""}" onclick="go('parentHome')"><span class="ico">⌂</span>Início</button><button class="${view === "challenges" ? "active" : ""}" onclick="go('challenges')"><span class="ico">🏅</span>Desafios</button><button class="${view === "matchDay" ? "active" : ""}" onclick="go('matchDay')"><span class="ico">⚽</span>Jogo</button><button class="${view === "absences" ? "active" : ""}" onclick="go('absences')"><span class="ico">📆</span>Faltas</button><button class="${view === "calendar" ? "active" : ""}" onclick="go('calendar')"><span class="ico">📅</span>Agenda</button></nav>`;
   return `<nav class="nav">${[
     ["home", "⌂", "Início"],
     ["training", "⚽", "Treino"],
@@ -619,6 +620,17 @@ function notificationItems() {
           title: "Nova convocatória",
           text: `GDR × ${g.opponent} · ${fmt(g.date)}.`,
           action: "matchDay",
+        });
+      });
+    const child = state.athletes.find((a) => a.id === selectedParentAthleteId) || state.athletes[0],
+      challengeBoard = state.challengeBoard || {},
+      challengeAthlete = (challengeBoard.athletes || []).find((a) => a.athleteId === child?.id);
+    [["weekly", challengeBoard.weekly, challengeAthlete?.weekly], ["monthly", challengeBoard.monthly, challengeAthlete?.monthly]]
+      .forEach(([cadence, challenge, result]) => {
+        if (challenge && result?.earned) items.push({
+          key: `challenge:${cadence}:${challenge.period}:${child.id}`,
+          icon: "🏅", title: `Patch conquistado: ${challenge.title}`,
+          text: "Uma nova conquista foi adicionada à Coleção GDR 360.", action: "challenges",
         });
       });
   }
@@ -1054,7 +1066,7 @@ function parentHome() {
     parentFeesHtml = parentFeesSection(child, today),
     monthlyGoal = parentMonthlyGoal(child, records, today),
     achievements = parentAchievements(child, records, today);
-  return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section>${birthdayBanner()}${noticeBoard(2, child.group)}<div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
+  return `<section class="parent-athlete-hero">${avatar(child, "avatar-xl")}<div class="grow"><span>Portal dos Pais</span><h2>${esc(child.name)}</h2><div class="parent-athlete-meta">${groupBadge(child.group)}<b>${trend.icon} ${esc(trend.label)}</b></div></div>${children.length > 1 ? `<select onchange="selectedParentAthleteId=this.value;render()">${children.map((a) => `<option value="${a.id}" ${a.id === child.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}</section>${birthdayBanner()}${noticeBoard(2, child.group)}${challengeHomeTeaser(child)}<div class="parent-main-grid"><section><div class="section"><h3>Disponibilidades abertas</h3><span class="task-count">${requests.length}</span></div><div class="list">${
     requests
       .map((r) => {
         const answer = (state.gameAvailability || []).find(
@@ -1078,6 +1090,137 @@ function parentHome() {
       .join("") ||
     '<div class="card empty">Ainda não existem treinos registados.</div>'
   }</div>${parentCallupsHtml}${parentFeesHtml}</section><aside><div class="parent-kpis"><div class="card"><span>Assiduidade</span><strong>${attendance}%</strong><small>${present.length}/${records.length} presenças</small></div><div class="card"><span>Treinos este mês</span><strong>${monthRecords.length}</strong><small>${monthRecords.filter((r) => r.status === "Presente").length} presenças</small></div><div class="card"><span>Empenho</span><strong>${avgValue("effort")}</strong><small>média global</small></div><div class="card"><span>Comportamento</span><strong>${avgValue("behavior")}</strong><small>média global</small></div></div><div class="section"><h3>Objetivo do mês</h3></div><div class="card parent-goal"><div class="goal-icon">🎯</div><div class="grow"><strong>${esc(monthlyGoal.title)}</strong><p>${esc(monthlyGoal.message)}</p><div class="goal-track"><i style="width:${monthlyGoal.progress}%"></i></div><small>${monthlyGoal.progress}% do objetivo</small></div></div><div class="section"><h3>Conquistas do atleta</h3><span>${achievements.length}</span></div><div class="parent-achievements">${achievements.map((a) => `<div class="card achievement"><span>${a.icon}</span><div><strong>${esc(a.title)}</strong><small>${esc(a.text)}</small></div></div>`).join("")}</div><div class="section"><h3>Evolução recente</h3></div>${evolutionBars(child.id)}<div class="section"><h3>Próximos eventos</h3><button class="btn btn-small btn-ghost" onclick="go('calendar')">Ver calendário</button></div><div class="list parent-events">${nextEvents.map(eventCard).join("") || '<div class="card empty">Sem eventos futuros.</div>'}</div><div class="section"><h3>Ações</h3></div><div class="quick-grid"><button class="btn btn-secondary" onclick="openSafety('${child.id}')">🛡️ Segurança do atleta</button>${child.playerCardPhotoUrl ? `<a class="btn btn-secondary" href="${esc(child.playerCardPhotoUrl)}" target="_blank" rel="noopener">🪪 Cartão de jogador</a>` : ""}<button class="btn btn-secondary" onclick="go('calendar')">📅 Calendário</button><button class="btn btn-secondary" onclick="go('absences')">📆 Comunicar falta</button></div></aside></div>`;
+}
+
+const GDR_CHALLENGES = {
+  weekly: [
+    { id:"energia", title:"Energia GDR", description:"Empenho de nível elevado em dois treinos da semana.", type:"average", field:"effort", target:4, minimum:2, badge:0 },
+    { id:"sempre_presente", title:"Sempre Presente", description:"Participar em todos os treinos da semana, com um mínimo de dois.", type:"attendance", target:1, minimum:2, badge:1 },
+    { id:"equipa", title:"Juntos Somos GDR", description:"Receber um reconhecimento de espírito de equipa ou entreajuda.", type:"tag", tags:["espírito de equipa","entreajuda","companheiro"], target:1, badge:2 },
+    { id:"passo_frente", title:"Passo em Frente", description:"Evoluir do primeiro para o último treino da semana.", type:"improvement", target:.5, minimum:2, badge:3 },
+    { id:"fair_play", title:"Guardião do Fair Play", description:"Comportamento de nível elevado em dois treinos da semana.", type:"average", field:"behavior", target:4, minimum:2, badge:4 },
+    { id:"atitude", title:"Pronto para Aprender", description:"Atitude positiva e disponível em dois treinos da semana.", type:"average", field:"attitude", target:4, minimum:2, badge:5 },
+    { id:"consistencia", title:"Semana de Ouro", description:"Concluir três treinos com presença e compromisso.", type:"presence", target:3, badge:6 },
+    { id:"tecnico", title:"Desafio Futebolístico", description:"Somar dois destaques técnico-táticos registados pela equipa técnica.", type:"tag", tags:["passe","receção","finalização","posicionamento","tomada de decisão","transição","qualidade técnica"], target:2, badge:7 },
+    { id:"alegria_campo", title:"Alegria em Campo", description:"Demonstrar atitude muito positiva em dois treinos da semana.", type:"average", field:"attitude", target:4.3, minimum:2, badge:8 },
+    { id:"motor_ligado", title:"Motor Ligado", description:"Alcançar uma média de empenho muito elevada em dois treinos.", type:"average", field:"effort", target:4.5, minimum:2, badge:9 },
+    { id:"dupla_forca", title:"Dupla Força", description:"Equilibrar atitude, empenho e comportamento em dois treinos.", type:"balanced", target:4, minimum:2, badge:10 },
+    { id:"cabeca_jogo", title:"Cabeça no Jogo", description:"Manter atitude e concentração de nível elevado em dois treinos.", type:"average", field:"attitude", target:4.2, minimum:2, badge:11 },
+    { id:"chuva_destaques", title:"Chuva de Destaques", description:"Reunir três destaques positivos nos treinos da semana.", type:"tag", tags:["empenho","espírito de equipa","evolução","qualidade técnica","passe","receção","finalização","posicionamento","tomada de decisão","transição"], target:3, badge:12 },
+    { id:"leao_compromisso", title:"Coração de Leão", description:"Estar presente em três treinos e manter empenho positivo.", type:"average", field:"effort", target:3.8, minimum:3, badge:13 },
+    { id:"dois_pes", title:"Dois Pés, Um Sonho", description:"Receber dois destaques de qualidade técnica ou evolução.", type:"tag", tags:["qualidade técnica","evolução"], target:2, badge:14 },
+    { id:"passe_magico", title:"Passe Mágico", description:"Conquistar um destaque relacionado com passe ou receção.", type:"tag", tags:["passe","receção"], target:1, badge:15 },
+    { id:"rede_estrelas", title:"Rede de Estrelas", description:"Conquistar um destaque relacionado com finalização.", type:"tag", tags:["finalização"], target:1, badge:16 },
+    { id:"decisao_certa", title:"Decisão Certa", description:"Conquistar um destaque de tomada de decisão.", type:"tag", tags:["tomada de decisão"], target:1, badge:17 },
+    { id:"equilibrio", title:"Equilíbrio GDR", description:"Manter os três indicadores de formação numa média positiva.", type:"balanced", target:3.7, minimum:2, badge:18 },
+    { id:"saber_ouvir", title:"Saber Ouvir", description:"Manter atitude muito positiva em três treinos.", type:"average", field:"attitude", target:4, minimum:3, badge:19 },
+    { id:"farol_equipa", title:"Farol da Equipa", description:"Combinar comportamento positivo com um destaque de equipa.", type:"heart", target:3.8, minimum:2, badge:20 },
+    { id:"bola_salta", title:"A Bola Não Para", description:"Participar em dois treinos e melhorar até ao último.", type:"improvement", target:.3, minimum:2, badge:21 },
+    { id:"mao_amiga", title:"Mão Amiga", description:"Somar dois reconhecimentos de entreajuda ou espírito de equipa.", type:"tag", tags:["espírito de equipa","entreajuda","companheiro"], target:2, badge:22 },
+    { id:"depois_chuva", title:"Depois da Chuva", description:"Regressar e participar positivamente após uma ausência anterior.", type:"average", field:"attitude", target:3.8, minimum:2, badge:23 },
+    { id:"ponte_amizade", title:"Ponte da Amizade", description:"Combinar presença total com um reconhecimento de equipa.", type:"heart", target:3.5, minimum:2, badge:24 },
+    { id:"super_ouvinte", title:"Super Ouvinte", description:"Alcançar atitude de nível máximo em pelo menos um treino.", type:"average", field:"attitude", target:5, minimum:1, badge:25 },
+    { id:"coragem", title:"Capa da Coragem", description:"Evoluir pelo menos meio ponto durante a semana.", type:"improvement", target:.5, minimum:2, badge:26 },
+    { id:"sol_positivo", title:"Sol Positivo", description:"Manter comportamento e atitude positivos em três treinos.", type:"balanced", target:3.8, minimum:3, badge:27 },
+    { id:"maos_seguras", title:"Mãos Seguras", description:"Manter comportamento exemplar em dois treinos.", type:"average", field:"behavior", target:4.5, minimum:2, badge:28 },
+    { id:"tres_caminhos", title:"Três Caminhos", description:"Somar três destaques técnico-táticos diferentes ou repetidos.", type:"tag", tags:["passe","receção","finalização","posicionamento","tomada de decisão","transição","qualidade técnica"], target:3, badge:29 },
+    { id:"primeiro_toque", title:"Primeiro Toque", description:"Receber um destaque de receção ou qualidade técnica.", type:"tag", tags:["receção","qualidade técnica"], target:1, badge:30 },
+    { id:"aventura_drible", title:"Aventura com Bola", description:"Combinar dois treinos presentes com evolução positiva.", type:"improvement", target:.25, minimum:2, badge:31 },
+    { id:"puzzle_equipa", title:"Peça da Equipa", description:"Receber um reconhecimento de espírito de equipa e manter bom comportamento.", type:"heart", target:3.5, minimum:2, badge:32 },
+    { id:"cinco_perfeito", title:"Cinco Perfeito", description:"Alcançar média máxima de comportamento durante a semana.", type:"average", field:"behavior", target:5, minimum:2, badge:33 },
+    { id:"mala_pronta", title:"Sempre Preparado", description:"Participar em todos os treinos da semana, com mínimo de três.", type:"attendance", target:1, minimum:3, badge:34 },
+    { id:"comboio", title:"Comboio GDR", description:"Construir uma sequência de três presenças na semana.", type:"presence", target:3, badge:35 },
+    { id:"regresso", title:"Voltar Mais Forte", description:"Apresentar uma evolução clara entre o primeiro e o último treino.", type:"improvement", target:.7, minimum:2, badge:36 },
+    { id:"respeito", title:"Respeito Sempre", description:"Manter comportamento muito positivo em três treinos.", type:"average", field:"behavior", target:4, minimum:3, badge:37 },
+    { id:"calma_bola", title:"Calma com Bola", description:"Equilibrar atitude e comportamento ao longo de dois treinos.", type:"balanced", target:4, minimum:2, badge:38 },
+    { id:"portal_vitoria", title:"Portal da Vitória", description:"Concluir três treinos com média global superior a quatro.", type:"balanced", target:4.1, minimum:3, badge:39 },
+  ],
+  monthly: [
+    { id:"compromisso_ouro", title:"Compromisso de Ouro", description:"Alcançar pelo menos 90% de assiduidade no mês, com três treinos registados.", type:"attendance", target:.9, minimum:3, badge:40 },
+    { id:"forca_vontade", title:"Força de Vontade", description:"Manter empenho de nível elevado durante o mês.", type:"average", field:"effort", target:4, minimum:3, badge:41 },
+    { id:"coracao_gdr", title:"Coração GDR", description:"Manter comportamento exemplar e receber um destaque de equipa.", type:"heart", target:4, minimum:3, badge:42 },
+    { id:"atleta_completo", title:"Atleta Completo", description:"Equilibrar atitude, empenho e comportamento ao longo do mês.", type:"balanced", target:3.8, minimum:3, badge:43 },
+    { id:"evolucao_mes", title:"Evolução do Mês", description:"Terminar o mês com evolução positiva face ao seu início.", type:"improvement", target:.5, minimum:3, badge:44 },
+    { id:"mira_certa", title:"Mira Certa", description:"Somar três destaques técnico-táticos durante o mês.", type:"tag", tags:["passe","receção","finalização","posicionamento","tomada de decisão","transição","qualidade técnica"], target:3, badge:45 },
+    { id:"mes_disciplina", title:"Mês da Disciplina", description:"Manter comportamento muito positivo em pelo menos quatro treinos.", type:"average", field:"behavior", target:4, minimum:4, badge:46 },
+    { id:"montanha", title:"Subida ao Topo", description:"Evoluir de forma clara entre o início e o final do mês.", type:"improvement", target:.7, minimum:4, badge:47 },
+    { id:"familia_equipa", title:"Família em Campo", description:"Somar três reconhecimentos de equipa, respeito ou entreajuda.", type:"tag", tags:["espírito de equipa","entreajuda","companheiro","respeito"], target:3, badge:48 },
+    { id:"mes_total", title:"Mês Completo", description:"Alcançar média superior a quatro nos três indicadores de formação.", type:"balanced", target:4.1, minimum:4, badge:49 },
+  ],
+};
+function badgeVisual(index, locked = false, size = "") {
+  const atlas = Math.floor(index / 12) + 1, local = index % 12,
+    col = local % 4, row = Math.floor(local / 4);
+  return `<span class="gdr-badge ${locked ? "locked" : ""} ${size}" style="--atlas:url('badge-atlas-gdr-${atlas}.png');--bx:${col * 33.333}%;--by:${row * 50}%"></span>`;
+}
+function challengeHomeTeaser(child) {
+  const board = state.challengeBoard || {}, challenge = board.weekly,
+    own = (board.athletes || []).find((a) => a.athleteId === child.id);
+  if (!challenge || !own) return "";
+  const result = own.weekly || { progress:0, earned:false },
+    conquered = (board.athletes || []).filter((a) => a.weekly?.earned).length;
+  return `<section class="challenge-teaser card" onclick="go('challenges')">${badgeVisual(challenge.badge, !result.earned, "badge-medium")}<div class="grow"><span>Desafio da semana</span><h3>${esc(challenge.title)}</h3><p>${esc(challenge.description)}</p><div class="challenge-progress"><i style="width:${result.progress}%"></i></div><small>${result.earned ? "Patch conquistado!" : `${result.progress}% concluído`} · ${conquered} conquistaram no escalão</small></div><b>Ver desafios ›</b></section>`;
+}
+function clientChallengeResult(challenge, records, start, end) {
+  const rr = records.filter((r) => { const d = trainingDate(r.trainingId); return d >= start && d <= end; }).sort((a,b) => trainingDate(a.trainingId).localeCompare(trainingDate(b.trainingId))),
+    present = rr.filter((r) => r.status === "Presente"),
+    average = (field) => present.length ? present.reduce((s,r) => s + Number(r[field] || 0),0) / present.length : 0,
+    tags = present.flatMap((r) => r.tags || []).map((x) => String(x).toLowerCase());
+  let value=0, earned=false;
+  if (challenge.type === "presence") { value=present.length; earned=value>=challenge.target; }
+  else if (challenge.type === "attendance") { value=rr.length ? present.length/rr.length : 0; earned=rr.length>=challenge.minimum && value>=challenge.target; }
+  else if (challenge.type === "average") { value=average(challenge.field); earned=present.length>=challenge.minimum && value>=challenge.target; }
+  else if (challenge.type === "tag") { value=tags.filter((tag) => challenge.tags.some((key) => tag.includes(key))).length; earned=value>=challenge.target; }
+  else if (challenge.type === "improvement") { value=present.length>=2 ? ["attitude","effort","behavior"].reduce((s,k)=>s+Number(present.at(-1)[k]||0)-Number(present[0][k]||0),0)/3 : 0; earned=present.length>=challenge.minimum && value>=challenge.target; }
+  else if (challenge.type === "balanced") { value=["attitude","effort","behavior"].reduce((s,k)=>s+average(k),0)/3; earned=present.length>=challenge.minimum && value>=challenge.target; }
+  else if (challenge.type === "heart") { value=average("behavior"); earned=present.length>=challenge.minimum && value>=challenge.target && tags.some((tag)=>["espírito de equipa","entreajuda","companheiro"].some((key)=>tag.includes(key))); }
+  return earned;
+}
+function challengeCollection(child) {
+  const records = athleteRecords(child.id), dates = records.map((r)=>trainingDate(r.trainingId)).filter(Boolean), items=[], seen=new Set();
+  dates.forEach((date) => {
+    const d=new Date(date+"T12:00:00"), day=d.getDay()||7; d.setDate(d.getDate()-day+1);
+    const start=d.toISOString().slice(0,10), serial=Math.floor(Date.UTC(Number(start.slice(0,4)),Number(start.slice(5,7))-1,Number(start.slice(8,10)))/604800000), ch=GDR_CHALLENGES.weekly[Math.abs(serial)%GDR_CHALLENGES.weekly.length], key="w|"+start;
+    if (!seen.has(key) && clientChallengeResult(ch,records,start,new Date(d.getTime()+6*86400000).toISOString().slice(0,10))) { seen.add(key); items.push({...ch,period:start,cadence:"Semanal"}); }
+    const month=date.slice(0,7), parts=month.split("-"), mi=Number(parts[0])*12+Number(parts[1])-1, mch=GDR_CHALLENGES.monthly[Math.abs(mi)%GDR_CHALLENGES.monthly.length], mkey="m|"+month;
+    if (!seen.has(mkey) && clientChallengeResult(mch,records,month+"-01",month+"-31")) { seen.add(mkey); items.push({...mch,period:month,cadence:"Mensal"}); }
+  });
+  return items.sort((a,b)=>b.period.localeCompare(a.period));
+}
+function specialChallengeCollection(child) {
+  const records=athleteRecords(child.id).slice().sort((a,b)=>trainingDate(a.trainingId).localeCompare(trainingDate(b.trainingId))),
+    present=records.filter((r)=>r.status==="Presente"), tags=present.flatMap((r)=>r.tags||[]).map((x)=>String(x).toLowerCase()),
+    average=(key)=>present.length?present.reduce((s,r)=>s+Number(r[key]||0),0)/present.length:0,
+    recent=records.slice().sort((a,b)=>trainingDate(b.trainingId).localeCompare(trainingDate(a.trainingId))),
+    firstMiss=recent.findIndex((r)=>r.status!=="Presente"), streak=firstMiss<0?recent.length:firstMiss,
+    improvement=present.length>=2?["attitude","effort","behavior"].reduce((s,k)=>s+Number(present.at(-1)[k]||0)-Number(present[0][k]||0),0)/3:0,
+    definitions=[
+      ["primeiro_passo","Primeiro Passo","Primeiro treino com presença registada.",50,present.length>=1],
+      ["dez_treinos","Clube dos 10","Dez treinos concluídos com presença.",51,present.length>=10],
+      ["cinco_seguidos","Cometa GDR","Cinco presenças consecutivas.",52,streak>=5],
+      ["vinte_treinos","Grande Caminhada","Vinte treinos concluídos com presença.",53,present.length>=20],
+      ["magia_tecnica","Magia com Bola","Cinco destaques técnico-táticos acumulados.",54,tags.filter((t)=>["passe","receção","finalização","posicionamento","tomada de decisão","transição","qualidade técnica"].some((k)=>t.includes(k))).length>=5],
+      ["super_colega","Super Companheiro","Três reconhecimentos de espírito de equipa ou entreajuda.",55,tags.filter((t)=>["espírito de equipa","entreajuda","companheiro"].some((k)=>t.includes(k))).length>=3],
+      ["renascer","Voltar a Voar","Uma evolução global superior a um ponto ao longo da época.",56,improvement>=1],
+      ["estrela_completa","Estrela Completa","Oito treinos com média igual ou superior a quatro nos três indicadores.",57,present.length>=8&&["attitude","effort","behavior"].every((k)=>average(k)>=4)],
+    ];
+  return definitions.filter((x)=>x[4]).map((x)=>({id:x[0],title:x[1],description:x[2],badge:x[3],cadence:"Especial",period:trainingDate(present.at(-1)?.trainingId)||""}));
+}
+function collectiveChallengeCard(child) {
+  const item=(state.challengeBoard?.collective||[]).find((x)=>x.group===child.group) || (child.group==="Traquinas/Benjamins" ? (state.challengeBoard?.collective||[])[0] : null);
+  if(!item)return "";
+  return `<article class="card collective-challenge ${item.earned?"earned":""}">${badgeVisual(item.badge,!item.earned,"badge-large")}<div class="grow"><span>Desafio coletivo · ${esc(item.group)}</span><h2>${esc(item.title)}</h2><p>${esc(item.description)}</p><div class="challenge-progress big"><i style="width:${item.progress}%"></i></div><b>${item.earned?"Conquistado por todo o escalão!":`${item.progress}% do escalão · ${item.earnedCount}/${item.total} conquistadores`}</b></div></article>`;
+}
+function challengeCard(challenge, result, cadence) {
+  const board=state.challengeBoard || {}, rows=board.athletes || [], key=cadence === "weekly" ? "weekly" : "monthly",
+    conquered=rows.filter((a)=>a[key]?.earned), near=rows.filter((a)=>!a[key]?.earned && (a[key]?.progress||0)>=60), ownAthlete=state.athletes.find((a)=>a.id===selectedParentAthleteId), own=rows.find((a)=>a.athleteId===ownAthlete?.id)?.[key] || result || {progress:0,earned:false};
+  return `<article class="challenge-current card ${own.earned ? "earned" : ""}"><div class="challenge-period"><span>${cadence === "weekly" ? "Desafio semanal" : "Desafio mensal"}</span><b>${fmt(challenge.start)} — ${fmt(challenge.end)}</b></div><div class="challenge-focus">${badgeVisual(challenge.badge,!own.earned,"badge-large")}<div><h2>${esc(challenge.title)}</h2><p>${esc(challenge.description)}</p><div class="challenge-progress big"><i style="width:${own.progress}%"></i></div><strong>${own.earned ? "✓ Patch conquistado" : `${own.progress}% do objetivo`}</strong></div></div><div class="conqueror-summary"><b>${conquered.length} conquistaram</b><span>${near.length} estão perto</span></div><div class="conquerors">${conquered.map((a)=>`<div title="${esc(a.name)}">${avatar({name:a.name,photoUrl:a.photoUrl},"avatar-small")}<span>${esc(a.name.split(" ")[0])}</span></div>`).join("") || '<small>Ainda ninguém conquistou este patch. Quem será o primeiro?</small>'}</div></article>`;
+}
+function challengesView() {
+  const child=state.athletes.find((a)=>a.id===selectedParentAthleteId) || state.athletes[0], board=state.challengeBoard || {}, collection=child ? challengeCollection(child) : [], specials=child?specialChallengeCollection(child):[];
+  if (!child || !board.weekly) return '<div class="card empty">Os desafios estão a ser preparados.</div>';
+  const allCollection=[...specials,...collection];
+  return `<section class="challenge-hero"><span>Coleção GDR 360</span><h1>Cada treino conta.</h1><p>Supera os desafios, conquista patches e acompanha os atletas do teu escalão.</p>${groupBadge(child.group)}</section><div class="challenge-grid">${challengeCard(board.weekly,null,"weekly")}${challengeCard(board.monthly,null,"monthly")}</div>${collectiveChallengeCard(child)}<div class="section"><div><span class="section-kicker">Coleção pessoal</span><h3>Patches de ${esc(child.name)}</h3></div><b>${allCollection.length} conquistados</b></div><div class="badge-collection">${allCollection.map((item)=>`<article class="card collection-item ${item.cadence==="Especial"?"special":""}">${badgeVisual(item.badge,false,"badge-medium")}<strong>${esc(item.title)}</strong><span>${item.cadence}${item.period?` · ${item.cadence === "Mensal" ? new Date(item.period+"-01T12:00:00").toLocaleDateString("pt-PT",{month:"long",year:"numeric"}) : item.cadence === "Semanal" ? `semana de ${fmt(item.period)}` : "conquista da época"}`:""}</span></article>`).join("") || '<div class="card empty">A coleção começa com os próximos registos de treino. O primeiro patch está à espera!</div>'}</div><div class="challenge-values"><b>Competição saudável</b><p>O mural mostra quem conquistou cada desafio dentro do escalão. As avaliações e o progresso detalhado das outras crianças permanecem privados.</p><strong>Não formamos apenas jogadores, formamos pessoas.</strong></div>`;
 }
 
 function parentEvolutionMessage(child, records, attendance, effort, behavior) {
@@ -3424,6 +3567,7 @@ function render() {
     b = '<section class="signed-in-loading"><div class="signed-in-mark">✓</div><h2>Entrada concluída</h2><p>Estamos a atualizar a informação mais recente.</p><div class="signed-in-pulse"><i></i><i></i><i></i></div></section>';
   else if (view === "home") b = home();
   else if (view === "parentHome") b = parentHome();
+  else if (view === "challenges") b = challengesView();
   else if (view === "athletes") b = athletes();
   else if (view === "athleteProfile") b = athleteProfile();
   else if (view === "safety") b = safetyView();
