@@ -1,4 +1,13 @@
-# GDR Formação 360 — v17.2
+# GDR Formação 360 — v17.3
+
+## Convocatória inteligente a partir da disponibilidade
+
+- Ao clicar em **Preparar convocatória**, surge primeiro um ecrã para indicar a quantidade pretendida ou escolher **Convocar todos os disponíveis**.
+- Apenas atletas com resposta explícita **Disponível** podem entrar na preparação.
+- Atletas **Indisponíveis** ou **Sem resposta** não aparecem, não são selecionáveis e nunca contam para o limite.
+- Quando é indicada uma quantidade, a app propõe automaticamente os atletas através de uma prioridade que combina assiduidade, empenho, atitude, comportamento, evolução recente e rotação nas últimas convocatórias.
+- A seleção proposta pode ser confirmada ou ajustada pela equipa técnica antes de guardar.
+- A opção **Convocar todos** inclui todos — e apenas — os atletas disponíveis daquele escalão.
 
 ## Centro de Disponibilidades
 
@@ -150,7 +159,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v17.2 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v17.3 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -195,4 +204,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **17.2.0**.
+Versão: **17.3.0**.

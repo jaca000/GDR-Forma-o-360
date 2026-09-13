@@ -43,6 +43,7 @@ let view = "home",
   eventDraft = null,
   selectedAnnouncementId = null;
 let availabilityDraft = null;
+let callupSetupDraft = null;
 let availabilityShareMessage = "";
 let selectedParentAthleteId = null;
 let savingTraining = false;
@@ -349,6 +350,7 @@ function go(v) {
   view = v;
   draft = null;
   callupDraft = null;
+  callupSetupDraft = null;
   selectedAthleteId = null;
   selectedTrainingId = null;
   eventDraft = null;
@@ -401,6 +403,13 @@ function goBack() {
   }
   if (view === "callup" && callupDraft) {
     closeCallupEditor();
+    return;
+  }
+  if (view === "callupSetup") {
+    const returnView = callupSetupDraft?.returnView || "availabilityHub";
+    callupSetupDraft = null;
+    view = returnView;
+    render();
     return;
   }
   if (view === "feeForm") {
@@ -2951,6 +2960,13 @@ function rotationBoost(a) {
   });
   return missed * 4;
 }
+function callupPriority(a) {
+  const development = ["attitude", "effort", "behavior"].reduce(
+    (total, key) => total + trend(a.id, key).delta,
+    0,
+  );
+  return Math.round(score(a) + rotationBoost(a) + development * 8);
+}
 function prepareCallup() {
   const group = $("gg").value,
     n = Number($("gn").value || 12),
@@ -2987,44 +3003,71 @@ function prepareCallup() {
 function prepareCallupForEvent(eventId, group) {
   const event = allEvents().find((x) => x.id === eventId);
   if (!event) return;
-  const sourceGame =
+  const effectiveGroup =
+      group || (event.group === "Todos" ? "Traquinas" : event.group),
+    available = gameAthletes(effectiveGroup).filter((athlete) =>
+      state.gameAvailability.some(
+        (row) =>
+          (row.eventId === event.id ||
+            (event.source === "game" && row.gameId === event.sourceId)) &&
+          (!row.group || row.group === effectiveGroup) &&
+          row.athleteId === athlete.id &&
+          row.status === "Disponível",
+      ),
+    ),
+    returnView =
+      view === "availability"
+        ? availabilityDraft?.returnView || "availabilityHub"
+        : view;
+  if (!available.length)
+    return toast(
+      `Ainda não existem atletas disponíveis em ${effectiveGroup}.`,
+    );
+  callupSetupDraft = { event, group: effectiveGroup, available, returnView };
+  availabilityDraft = null;
+  view = "callupSetup";
+  render();
+}
+function callupSetupView() {
+  const setup = callupSetupDraft;
+  if (!setup) return '<div class="card empty">Não foi selecionada nenhuma disponibilidade.</div>';
+  const suggested = Math.min(12, setup.available.length);
+  return `<section class="callup-setup-hero"><span>Convocatória · ${esc(setup.group)}</span><h1>${esc(setup.event.title)}</h1><p>${fmt(setup.event.date)} · ${esc(setup.event.time || "Hora por definir")}</p></section><div class="card callup-setup-card"><div class="callup-available-total"><span>Atletas que podem ser convocados</span><strong>${setup.available.length}</strong><small>Apenas atletas que responderam <b>Disponível</b>. Indisponíveis e sem resposta ficam excluídos.</small></div><div class="callup-setup-choice"><label for="callupQuantity">Quantos atletas queres convocar?</label><input id="callupQuantity" type="number" min="1" max="${setup.available.length}" value="${suggested}" inputmode="numeric"><button class="btn btn-primary" onclick="confirmCallupSetup(false)">Criar convocatória com esta quantidade</button><div class="callup-choice-divider"><span>ou</span></div><button class="btn btn-secondary btn-block" onclick="confirmCallupSetup(true)">Convocar todos os ${setup.available.length} disponíveis</button></div><div class="callup-smart-note"><span>✨</span><div><strong>Seleção inteligente GDR</strong><p>Ao escolher uma quantidade, a app seleciona automaticamente os atletas disponíveis com base na assiduidade, empenho, atitude, comportamento, evolução e rotação nas convocatórias.</p></div></div></div>`;
+}
+function confirmCallupSetup(allAvailable) {
+  if (!callupSetupDraft) return;
+  const maximum = callupSetupDraft.available.length,
+    raw = Number($("callupQuantity")?.value),
+    requested = allAvailable
+      ? maximum
+      : Math.floor(raw);
+  if (!allAvailable && (!Number.isFinite(raw) || requested < 1 || requested > maximum))
+    return toast(`Indica uma quantidade entre 1 e ${maximum}.`);
+  buildCallupForEvent(callupSetupDraft, requested);
+}
+function buildCallupForEvent(setup, requested) {
+  const event = setup.event,
+    effectiveGroup = setup.group,
+    sourceGame =
       event.source === "game"
         ? state.games.find((x) => x.id === event.sourceId)
         : null,
-    effectiveGroup =
-      group || (event.group === "Todos" ? "Traquinas" : event.group),
     gameId =
       sourceGame?.id ||
       `cal_${String(event.id).replace(/[^a-zA-Z0-9_-]/g, "_")}_${effectiveGroup.toLowerCase()}`,
-    limit = Number(sourceGame?.callupLimit || 12),
-    eligible = sortName(
-      state.athletes.filter(
-        (a) =>
-          a.active &&
-          (a.group === effectiveGroup || a.group === "Traquinas/Benjamins"),
-      ),
-    ).map((a) => {
-      const av = state.gameAvailability.find(
-        (x) =>
-          (x.eventId === event.id ||
-            (sourceGame && x.gameId === sourceGame.id)) &&
-          (!x.group || x.group === effectiveGroup) &&
-          x.athleteId === a.id,
-      );
-      return {
-        ...a,
-        score: score(a),
-        rotation: rotationBoost(a),
-        availability: av?.status || "Sem resposta",
-      };
-    }),
-    selectable = eligible.filter((a) => a.availability !== "Indisponível"),
-    recommended = [...selectable]
+    limit = Math.min(requested, setup.available.length),
+    eligible = sortName(setup.available).map((athlete) => ({
+      ...athlete,
+      score: score(athlete),
+      rotation: rotationBoost(athlete),
+      priority: callupPriority(athlete),
+      availability: "Disponível",
+    })),
+    recommended = [...eligible]
       .sort(
         (a, b) =>
-          (a.availability === "Disponível" ? -1 : 1) -
-            (b.availability === "Disponível" ? -1 : 1) ||
-          b.score + b.rotation - (a.score + a.rotation),
+          b.priority - a.priority ||
+          a.name.localeCompare(b.name, "pt"),
       )
       .slice(0, limit)
       .map((a) => a.id);
@@ -3036,15 +3079,13 @@ function prepareCallupForEvent(eventId, group) {
     date: event.date,
     time: event.time,
     group: effectiveGroup,
-    equipment: sourceGame?.equipment || "Vermelho",
+    equipment: sourceGame?.equipment || event.equipment || "Vermelho",
     limit,
     eligible,
     selected: new Set(recommended),
-    returnView:
-      view === "availability"
-        ? availabilityDraft?.returnView || "availabilityHub"
-        : view,
+    returnView: setup.returnView || "availabilityHub",
   };
+  callupSetupDraft = null;
   availabilityDraft = null;
   view = "callup";
   render();
@@ -3068,10 +3109,14 @@ function callupEditor() {
   return `<div class="section"><div><h3>${esc(callupDraft.opponent)}</h3><div class="muted">${fmt(callupDraft.date)} · ${esc(callupDraft.time || "Hora por definir")}</div></div><span class="equipment-badge ${callupDraft.equipment === "Vermelho" ? "equip-red" : "equip-white"}">${callupDraft.equipment === "Vermelho" ? "🔴" : "⚪"} ${callupDraft.equipment}</span></div><div class="callup-counter"><strong>${selected.length}</strong> / ${callupDraft.limit} convocados</div><div class="football-pitch">${pitchPlayers(selected)}</div><div class="section"><h3>Selecionar jogadores</h3></div><div class="list">${[
     ...callupDraft.eligible,
   ]
-    .sort((a, b) => b.score + b.rotation - (a.score + a.rotation))
+    .sort(
+      (a, b) =>
+        Number(b.priority ?? b.score + b.rotation) -
+        Number(a.priority ?? a.score + a.rotation),
+    )
     .map(
       (a) =>
-        `<button class="card callup-row availability-${a.availability.replace(" ", "-").toLowerCase()} ${callupDraft.selected.has(a.id) ? "selected" : ""}" onclick="toggleCallup('${a.id}')">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="number-badge">#${esc(shirtNumber(a, callupDraft.equipment))}</span><span class="availability-badge">${availabilityIcon(a.availability)} ${esc(a.availability)}</span></div><div class="muted">Índice ${score(a)}${a.rotation ? ` · 🔄 rotação +${a.rotation}` : ""}</div></div><span class="checkmark">${callupDraft.selected.has(a.id) ? "✓" : ""}</span></button>`,
+        `<button class="card callup-row availability-${a.availability.replace(" ", "-").toLowerCase()} ${callupDraft.selected.has(a.id) ? "selected" : ""}" onclick="toggleCallup('${a.id}')">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="number-badge">#${esc(shirtNumber(a, callupDraft.equipment))}</span><span class="availability-badge">${availabilityIcon(a.availability)} ${esc(a.availability)}</span></div><div class="muted">Prioridade automática ${a.priority ?? score(a) + a.rotation}${a.rotation ? ` · 🔄 rotação +${a.rotation}` : ""}</div></div><span class="checkmark">${callupDraft.selected.has(a.id) ? "✓" : ""}</span></button>`,
     )
     .join(
       "",
@@ -3637,6 +3682,7 @@ function render() {
   else if (view === "trainingSummary") b = trainingSummary();
   else if (view === "dashboard") b = dashboard();
   else if (view === "callup") b = callup();
+  else if (view === "callupSetup") b = callupSetupView();
   else if (view === "fees") b = fees();
   else if (view === "feeForm") b = feeForm();
   else if (view === "calendar") b = calendar();
