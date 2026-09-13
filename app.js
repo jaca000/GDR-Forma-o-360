@@ -326,9 +326,10 @@ function refresh() {
 function nav() {
   if (user?.role === "parent")
     return `<nav class="nav parent-nav"><button class="${view === "parentHome" ? "active" : ""}" onclick="go('parentHome')"><span class="ico">⌂</span>Início</button><button class="${view === "challenges" ? "active" : ""}" onclick="go('challenges')"><span class="ico">🏅</span>Desafios</button><button class="${view === "matchDay" ? "active" : ""}" onclick="go('matchDay')"><span class="ico">⚽</span>Jogo</button><button class="${view === "absences" ? "active" : ""}" onclick="go('absences')"><span class="ico">📆</span>Faltas</button><button class="${view === "calendar" ? "active" : ""}" onclick="go('calendar')"><span class="ico">📅</span>Agenda</button></nav>`;
-  return `<nav class="nav">${[
+  return `<nav class="nav technical-nav">${[
     ["home", "⌂", "Início"],
     ["training", "⚽", "Treino"],
+    ["availabilityHub", "✅", "Disponib."],
     ["fees", "€", "Mensalidades"],
     ["calendar", "📅", "Calendário"],
     ["weekly", "📊", "Semana"],
@@ -399,8 +400,7 @@ function goBack() {
     return;
   }
   if (view === "callup" && callupDraft) {
-    callupDraft = null;
-    render();
+    closeCallupEditor();
     return;
   }
   if (view === "feeForm") {
@@ -433,8 +433,9 @@ function goBack() {
     return;
   }
   if (view === "availability") {
+    const returnView = availabilityDraft?.returnView || "availabilityHub";
     availabilityDraft = null;
-    view = "games";
+    view = returnView;
     render();
     return;
   }
@@ -2759,6 +2760,48 @@ function availabilityCalendarEvents() {
     (e) => e.date >= today && (e.type === "Jogo" || e.type === "Torneio"),
   );
 }
+function openAvailabilityRequests() {
+  return (state.availabilityRequests || [])
+    .filter((request) => request.status === "Aberto")
+    .map((request) => ({
+      request,
+      event: allEvents().find((event) => event.id === request.eventId),
+    }))
+    .filter((item) => item.event)
+    .sort((a, b) =>
+      (a.event.date + (a.event.time || "")).localeCompare(
+        b.event.date + (b.event.time || ""),
+      ),
+    );
+}
+function availabilityHubGroup(group) {
+  const requests = openAvailabilityRequests().filter(
+    (item) => item.request.group === group,
+  );
+  return `<section class="availability-hub-group ${group.toLowerCase()}"><div class="availability-hub-heading"><div>${groupBadge(group)}<h2>${esc(group)}</h2></div><span>${requests.length} pedido${requests.length === 1 ? "" : "s"} aberto${requests.length === 1 ? "" : "s"}</span></div><div class="availability-hub-list">${requests
+    .map(({ request, event }) => {
+      const athletes = gameAthletes(group),
+        rows = availabilityRows(event, group),
+        statusOf = (athlete) =>
+          rows.find((row) => row.athleteId === athlete.id)?.status ||
+          "Sem resposta",
+        available = athletes.filter((athlete) => statusOf(athlete) === "Disponível"),
+        unavailable = athletes.filter((athlete) => statusOf(athlete) === "Indisponível"),
+        noAnswer = athletes.filter((athlete) => statusOf(athlete) === "Sem resposta"),
+        answered = available.length + unavailable.length,
+        answerPct = athletes.length ? Math.round((answered / athletes.length) * 100) : 0;
+      const names = (list, empty) =>
+        list.length
+          ? list.map((athlete) => `<span>${esc(athlete.name)}</span>`).join("")
+          : `<small>${empty}</small>`;
+      return `<article class="card availability-hub-card"><div class="availability-hub-card-head"><div class="availability-event-date"><b>${new Date(event.date + "T12:00:00").getDate()}</b><span>${new Date(event.date + "T12:00:00").toLocaleDateString("pt-PT", { month: "short" }).toUpperCase()}</span></div><div class="grow"><span class="availability-open-label">Pedido aberto · prazo ${fmt(request.deadline)}</span><h3>${esc(event.title)}</h3><p>${esc(event.time || "Hora por definir")}${event.location ? ` · ${esc(event.location)}` : ""}</p></div><strong class="availability-answer-rate">${answered}/${athletes.length}<small>responderam</small></strong></div><div class="challenge-progress availability-response-progress"><i style="width:${answerPct}%"></i></div><div class="availability-quick-counts"><span class="available">✅ <b>${available.length}</b> disponíveis</span><span class="unavailable">❌ <b>${unavailable.length}</b> indisponíveis</span><span class="no-answer">❔ <b>${noAnswer.length}</b> sem resposta</span></div><div class="availability-name-columns"><div class="available"><strong>Disponíveis</strong>${names(available, "Ainda ninguém")}</div><div class="unavailable"><strong>Indisponíveis</strong>${names(unavailable, "Ainda ninguém")}</div><div class="no-answer"><strong>Sem resposta</strong>${names(noAnswer, "Todos responderam")}</div></div><div class="availability-hub-actions"><button class="btn btn-secondary" onclick="openAvailability('${event.id}','${group}')">Ver e gerir respostas</button><button class="btn btn-primary" onclick="prepareCallupForEvent('${event.id}','${group}')">Preparar convocatória · ${esc(group)}</button></div></article>`;
+    })
+    .join("") || '<div class="card empty">Não existem pedidos de disponibilidade abertos neste escalão.</div>'}</div></section>`;
+}
+function availabilityHub() {
+  const total = openAvailabilityRequests().length;
+  return `<section class="availability-hub-hero"><div><span>Centro de decisão</span><h1>Disponibilidades</h1><p>Pedidos abertos, respostas das famílias e preparação das convocatórias, sempre separados por escalão.</p></div><div><strong>${total}</strong><span>pedidos abertos</span></div></section><div class="availability-hub-groups">${availabilityHubGroup("Traquinas")}${availabilityHubGroup("Benjamins")}</div>`;
+}
 function nextEventsHome() {
   const today = new Date().toISOString().slice(0, 10),
     ee = allEvents()
@@ -2937,6 +2980,7 @@ function prepareCallup() {
     limit: n,
     eligible,
     selected: new Set(recommended),
+    returnView: view === "availability" ? "availabilityHub" : view,
   };
   render();
 }
@@ -2996,6 +3040,10 @@ function prepareCallupForEvent(eventId, group) {
     limit,
     eligible,
     selected: new Set(recommended),
+    returnView:
+      view === "availability"
+        ? availabilityDraft?.returnView || "availabilityHub"
+        : view,
   };
   availabilityDraft = null;
   view = "callup";
@@ -3027,7 +3075,13 @@ function callupEditor() {
     )
     .join(
       "",
-    )}</div><div class="callup-actions"><button class="btn btn-secondary" onclick="callupDraft=null;render()">Voltar</button><button class="btn btn-secondary" onclick="printCallup()">🖨️ PDF / Imprimir</button><button class="btn btn-primary" onclick="saveCallup()">Guardar convocatória</button></div>`;
+    )}</div><div class="callup-actions"><button class="btn btn-secondary" onclick="closeCallupEditor()">Voltar</button><button class="btn btn-secondary" onclick="printCallup()">🖨️ PDF / Imprimir</button><button class="btn btn-primary" onclick="saveCallup()">Guardar convocatória</button></div>`;
+}
+function closeCallupEditor() {
+  const returnView = callupDraft?.returnView || "availabilityHub";
+  callupDraft = null;
+  view = returnView;
+  render();
 }
 function pitchPlayers(players) {
   if (!players.length)
@@ -3061,7 +3115,7 @@ async function saveCallup() {
     });
     await refresh();
     toast("Convocatória guardada");
-    view = "games";
+    view = callupDraft.returnView || "availabilityHub";
     callupDraft = null;
     render();
   } catch (e) {
@@ -3215,7 +3269,13 @@ function openAvailability(eventId, group) {
       note: saved?.note || "",
     };
   });
-  availabilityDraft = { event, group: effectiveGroup, rows };
+  const returnView =
+    user?.role === "parent"
+      ? "parentHome"
+      : view === "availability"
+        ? availabilityDraft?.returnView || "availabilityHub"
+        : view;
+  availabilityDraft = { event, group: effectiveGroup, rows, returnView };
   availabilityShareMessage = "";
   view = "availability";
   render();
@@ -3360,7 +3420,9 @@ async function saveAvailability(prepare = false) {
     toast("Disponibilidade guardada");
     if (prepare) prepareCallupForEvent(event.id, group);
     else {
-      view = user?.role === "parent" ? "parentHome" : "calendar";
+      view =
+        availabilityDraft.returnView ||
+        (user?.role === "parent" ? "parentHome" : "availabilityHub");
       availabilityDraft = null;
       render();
     }
@@ -3582,6 +3644,7 @@ function render() {
   else if (view === "lineup") b = lineup();
   else if (view === "absences") b = absences();
   else if (view === "availability") b = availability();
+  else if (view === "availabilityHub") b = availabilityHub();
   else if (view === "weekly") b = weekly();
   else if (view === "games") b = games();
   else if (view === "users") b = users();

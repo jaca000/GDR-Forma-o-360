@@ -1,4 +1,14 @@
-# GDR Formação 360 — v17.1
+# GDR Formação 360 — v17.2
+
+## Centro de Disponibilidades
+
+- Novo menu **Disponib.** para Administrador e Treinadores, independente do Calendário e dos Jogos.
+- Pedidos abertos organizados em duas áreas distintas: **Traquinas** e **Benjamins**.
+- Cada pedido mostra imediatamente quantos atletas responderam, quantos estão disponíveis, indisponíveis ou sem resposta.
+- Os nomes aparecem agrupados por estado para permitir uma leitura rápida sem abrir cada atleta.
+- A partir do próprio pedido é possível consultar/gerir as respostas ou preparar diretamente a convocatória do respetivo escalão.
+- A convocatória mantém a separação por escalão, dá prioridade aos atletas disponíveis e bloqueia os indisponíveis.
+- Preserva todos os pedidos, respostas e convocatórias já existentes; não cria novas folhas nem altera a estrutura dos dados.
 
 O menu Atletas inclui agora uma exportação completa para Excel, exclusiva de `josealmanso`, com dados pessoais, escalão, equipamentos, fotografias, cartão de jogador, contas familiares, contactos de emergência, ficha de segurança e indicadores desportivos. O ficheiro é gerado em CSV UTF-8 compatível com Excel e protegido contra fórmulas introduzidas através dos dados.
 
@@ -140,7 +150,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v17.1 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v17.2 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -185,4 +195,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **17.1.0**.
+Versão: **17.2.0**.
