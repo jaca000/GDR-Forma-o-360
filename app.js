@@ -461,7 +461,40 @@ function goBack() {
 }
 
 function athleteRecords(id) {
-  return state.records.filter((x) => x.athleteId === id);
+  const records = state.records.filter((x) => x.athleteId === id),
+    athlete = state.athletes.find((item) => item.id === id);
+  if (athlete?.group !== "Traquinas/Benjamins") return records;
+  const byDay = new Map(),
+    rank = { Presente: 3, Justificada: 2, Falta: 1 };
+  records.forEach((record) => {
+    const date = trainingDate(record.trainingId),
+      key = date || `treino:${record.trainingId}`;
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(record);
+  });
+  return [...byDay.values()]
+    .map((dayRecords) => {
+      const present = dayRecords.find((record) => record.status === "Presente");
+      if (present) return present;
+      const groups = new Set(
+        dayRecords.map(
+          (record) =>
+            state.trainings.find((training) => training.id === record.trainingId)
+              ?.group || "",
+        ),
+      );
+      if (
+        !groups.has("Todos") &&
+        !(groups.has("Traquinas") && groups.has("Benjamins"))
+      )
+        return null;
+      return dayRecords
+        .slice()
+        .sort(
+          (a, b) => (rank[b.status] || 0) - (rank[a.status] || 0),
+        )[0];
+    })
+    .filter(Boolean);
 }
 function attendancePct(id) {
   const r = athleteRecords(id);
@@ -2014,7 +2047,21 @@ function trainingPeople() {
         !excluded.has(a.id) &&
         (draft.group === "Todos" ||
           a.group === draft.group ||
-          a.group === "Traquinas/Benjamins"),
+          a.group === "Traquinas/Benjamins") &&
+        !(
+          a.group === "Traquinas/Benjamins" &&
+          state.records.some((record) => {
+            const training = state.trainings.find(
+              (item) => item.id === record.trainingId,
+            );
+            return (
+              record.athleteId === a.id &&
+              record.status === "Presente" &&
+              training?.date === draft.date &&
+              training.group !== draft.group
+            );
+          })
+        ),
     ),
   );
 }
