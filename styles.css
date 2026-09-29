@@ -1557,6 +1557,64 @@ button {
 .calendar-list {
   margin-top: 10px;
 }
+.calendar-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.calendar-controls {
+  display: flex;
+  align-items: end;
+  gap: 18px;
+}
+.calendar-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 12px;
+  flex: 1;
+}
+.calendar-filter-grid .field {
+  margin: 0;
+}
+.calendar-result-note {
+  min-width: 245px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: #fff4f4;
+  color: var(--red2);
+}
+.calendar-result-note > span {
+  font-size: 24px;
+}
+.calendar-result-note b,
+.calendar-result-note small {
+  display: block;
+}
+.calendar-result-note small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-weight: 700;
+}
+@media (max-width: 700px) {
+  .calendar-heading,
+  .calendar-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .calendar-heading-actions,
+  .calendar-heading-actions .btn {
+    width: 100%;
+  }
+  .calendar-filter-grid {
+    grid-template-columns: 1fr;
+  }
+  .calendar-result-note {
+    min-width: 0;
+  }
+}
 .training-history-card,
 .training-summary-row {
   display: flex;

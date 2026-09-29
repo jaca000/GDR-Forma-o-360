@@ -1,4 +1,12 @@
-# GDR Formação 360 — v17.4
+# GDR Formação 360 — v17.5
+
+## Calendário limpo e exportável
+
+- A vista principal mostra apenas os eventos de hoje e futuros; os eventos passados continuam guardados no histórico, mas deixam de criar confusão no calendário operacional.
+- Filtros independentes por tipo de evento e por escalão: Todos, Traquinas ou Benjamins.
+- Os eventos destinados a Todos aparecem corretamente quando é escolhido qualquer um dos escalões.
+- Novo botão **PDF / Imprimir**, que respeita os filtros escolhidos e cria um calendário A4 com identidade GDR, resumo por tipo, organização por mês, datas, horas, locais, escalões, equipamentos e observações.
+- O documento pode ser impresso diretamente ou guardado como PDF através da opção do navegador.
 
 ## Assiduidade dos atletas Traquinas/Benjamins
 
@@ -169,7 +177,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v17.4 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v17.5 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -214,4 +222,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **17.4.0**.
+Versão: **17.5.0**.

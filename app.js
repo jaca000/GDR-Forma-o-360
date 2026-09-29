@@ -2892,10 +2892,68 @@ function eventCard(e) {
       : "";
   return `<div class="card event-row"><div class="event-date"><b>${new Date(e.date + "T12:00:00").getDate()}</b><span>${new Date(e.date + "T12:00:00").toLocaleDateString("pt-PT", { month: "short" }).toUpperCase()}</span></div><div class="grow"><strong>${icons[e.type] || "📌"} ${esc(e.title)}</strong><div class="muted">${esc(e.time || "Hora por definir")}${e.group ? ` · ${esc(e.group)}` : ""}${e.location ? ` · ${esc(e.location)}` : ""}</div>${gameActions}</div>${trainingAction}${admin() && e.source === "manual" ? `<button class="btn btn-small btn-danger" onclick="deleteEvent('${e.id}')">Eliminar</button>` : ""}</div>`;
 }
+function upcomingCalendarEvents(typeFilter = "Todos", groupFilter = "Todos") {
+  const today = new Date().toISOString().slice(0, 10);
+  return allEvents().filter(
+    (event) =>
+      event.date >= today &&
+      (typeFilter === "Todos" || event.type === typeFilter) &&
+      (groupFilter === "Todos" ||
+        event.group === "Todos" ||
+        event.group === groupFilter),
+  );
+}
 function calendar() {
-  const filter = $("eventFilter")?.value || "Todos",
-    ee = allEvents().filter((e) => filter === "Todos" || e.type === filter);
-  return `<div class="section"><h3>Calendário da formação</h3>${admin() ? '<button class="btn btn-primary" onclick="eventForm()">+ Evento</button>' : ""}</div><div class="card"><div class="field"><label>Mostrar</label><select id="eventFilter" onchange="render()">${["Todos", "Treino", "Jogo", "Torneio", "Outro"].map((x) => `<option ${x === filter ? "selected" : ""}>${x}</option>`).join("")}</select></div></div><div class="list calendar-list">${ee.map(eventCard).join("") || '<div class="card empty">Sem eventos.</div>'}</div>`;
+  const typeFilter = $("eventFilter")?.value || "Todos",
+    groupFilter = $("eventGroupFilter")?.value || "Todos",
+    ee = upcomingCalendarEvents(typeFilter, groupFilter),
+    typeLabel = typeFilter === "Todos" ? "todos os tipos" : typeFilter.toLowerCase(),
+    groupLabel = groupFilter === "Todos" ? "todos os escalões" : groupFilter;
+  return `<div class="section calendar-heading"><div><h3>Calendário da formação</h3><div class="muted">Apenas hoje e próximos eventos, por ordem cronológica.</div></div><div class="calendar-heading-actions"><button class="btn btn-secondary" onclick="printCalendar()">🖨️ PDF / Imprimir</button>${admin() ? '<button class="btn btn-primary" onclick="eventForm()">+ Evento</button>' : ""}</div></div><div class="card calendar-controls"><div class="calendar-filter-grid"><div class="field"><label>Tipo de evento</label><select id="eventFilter" onchange="render()">${["Todos", "Treino", "Jogo", "Torneio", "Outro"].map((x) => `<option ${x === typeFilter ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="field"><label>Escalão</label><select id="eventGroupFilter" onchange="render()">${["Todos", "Traquinas", "Benjamins"].map((x) => `<option ${x === groupFilter ? "selected" : ""}>${x}</option>`).join("")}</select></div></div><div class="calendar-result-note"><span>📅</span><div><b>${ee.length} ${ee.length === 1 ? "evento futuro" : "eventos futuros"}</b><small>A mostrar ${typeLabel} · ${groupLabel}</small></div></div></div><div class="list calendar-list">${ee.map(eventCard).join("") || '<div class="card empty">Não existem eventos futuros para estes filtros.</div>'}</div>`;
+}
+function printCalendar() {
+  const typeFilter = $("eventFilter")?.value || "Todos",
+    groupFilter = $("eventGroupFilter")?.value || "Todos",
+    events = upcomingCalendarEvents(typeFilter, groupFilter),
+    popup = window.open("", "_blank");
+  if (!popup) return toast("Autorize a abertura da janela para criar o PDF.");
+  if (!events.length) {
+    popup.close();
+    return toast("Não existem eventos futuros para exportar com estes filtros.");
+  }
+  const typeNames = { Treino: "Treino", Jogo: "Jogo", Torneio: "Torneio", Outro: "Outro" },
+    types = ["Treino", "Jogo", "Torneio", "Outro"],
+    countCards = types
+      .map((type) => `<div><span>${typeNames[type]}</span><b>${events.filter((event) => event.type === type).length}</b></div>`)
+      .join(""),
+    monthKey = (date) => date.slice(0, 7),
+    monthTitle = (date) =>
+      new Date(date + "-01T12:00:00").toLocaleDateString("pt-PT", {
+        month: "long",
+        year: "numeric",
+      }),
+    months = [...new Set(events.map((event) => monthKey(event.date)))],
+    sections = months
+      .map(
+        (month) =>
+          `<section><h2>${esc(monthTitle(month))}</h2>${events
+            .filter((event) => monthKey(event.date) === month)
+            .map((event) => {
+              const date = new Date(event.date + "T12:00:00"),
+                dateText = date.toLocaleDateString("pt-PT", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                });
+              return `<article class="event ${String(event.type || "Outro").toLowerCase()}"><div class="day"><b>${date.getDate()}</b><span>${date.toLocaleDateString("pt-PT", { month: "short" }).replace(".", "").toUpperCase()}</span></div><div class="event-main"><span class="type">${esc(event.type || "Outro")}</span><h3>${esc(event.title)}</h3><p>${esc(dateText)} · ${esc(event.time || "Hora por definir")}</p><div class="details"><span><b>Escalão</b>${esc(event.group || "Todos")}</span><span><b>Local</b>${esc(event.location || "Por definir")}</span>${event.equipment ? `<span><b>Equipamento</b>${esc(event.equipment)}</span>` : ""}</div>${event.note ? `<small>${esc(event.note)}</small>` : ""}</div></article>`;
+            })
+            .join("")}</section>`,
+      )
+      .join(""),
+    filterText = `${groupFilter === "Todos" ? "Todos os escalões" : groupFilter} · ${typeFilter === "Todos" ? "Todos os eventos" : typeFilter}`,
+    logo = `${location.origin + location.pathname.replace(/[^/]*$/, "")}logo-formacao-gdr.png`;
+  popup.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Calendário GDR Formação 360</title><style>@page{size:A4;margin:11mm}*{box-sizing:border-box}body{margin:0;color:#17171a;font-family:Arial,sans-serif;background:#fff}.hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:20px;background:linear-gradient(125deg,#c41220,#8e0710);color:#fff}.hero:after{content:"";position:absolute;width:180px;height:180px;border:28px solid rgba(255,255,255,.07);border-radius:50%;right:-55px;top:-70px}.hero img{width:90px;height:72px;object-fit:contain;background:#fff;border-radius:14px;padding:5px}.hero h1{margin:0 0 4px;font-size:25px}.hero p{margin:0;font-size:12px;opacity:.9}.filter{margin:12px 0 10px;padding:9px 12px;border:1px solid #e2e2e6;border-radius:12px;font-size:11px;color:#5e626a}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:15px}.summary div{padding:9px;border-radius:11px;background:#f5f5f7;border-top:3px solid #bd1622}.summary span{display:block;font-size:9px;text-transform:uppercase;color:#71757c;font-weight:700}.summary b{display:block;margin-top:2px;font-size:20px}section{margin-top:15px;break-inside:auto}section>h2{margin:0 0 8px;padding-bottom:5px;border-bottom:2px solid #bd1622;color:#97101a;font-size:17px;text-transform:capitalize}.event{display:flex;gap:12px;margin:0 0 8px;padding:10px 11px;border:1px solid #e0e1e5;border-left:5px solid #bd1622;border-radius:13px;break-inside:avoid}.event.jogo{border-left-color:#1b6fd1}.event.torneio{border-left-color:#d49a00}.event.outro{border-left-color:#696d75}.day{width:46px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto;border-radius:11px;background:#fff0f1;color:#9e0d18}.day b{font-size:21px;line-height:1}.day span{font-size:8px;font-weight:800}.event-main{flex:1}.type{display:inline-block;padding:2px 7px;border-radius:999px;background:#f1f2f4;color:#555b64;font-size:8px;font-weight:800;text-transform:uppercase}.event h3{margin:4px 0 2px;font-size:14px}.event p{margin:0;color:#666b74;font-size:10px;text-transform:capitalize}.details{display:flex;gap:18px;margin-top:7px}.details span{font-size:9px;color:#525761}.details b{display:block;color:#92969d;font-size:7px;text-transform:uppercase}.event small{display:block;margin-top:7px;padding-top:6px;border-top:1px solid #eee;color:#676b72;font-size:9px}.footer{margin-top:14px;padding-top:7px;border-top:1px solid #ddd;display:flex;justify-content:space-between;color:#858991;font-size:8px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><header class="hero"><img src="${logo}"><div><h1>Calendário da Formação</h1><p>GDR Formação 360 · Organização, compromisso e paixão pelo futebol.</p></div></header><div class="filter"><b>Calendário selecionado:</b> ${esc(filterText)} · a partir de ${new Date().toLocaleDateString("pt-PT")}</div><div class="summary">${countCards}</div>${sections}<footer class="footer"><span>GDR Faro do Alentejo · Formação</span><span>Gerado em ${new Date().toLocaleString("pt-PT")}</span></footer><script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+  popup.document.close();
 }
 function eventForm() {
   if (!admin()) return;
