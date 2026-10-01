@@ -165,11 +165,20 @@ async function api(action, payload = {}) {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const j = await rawApi(action, mutating ? { ...payload, mutationId } : payload, waitLimit);
-      if (j.pending && mutationId) return await waitForMutation(mutationId);
+      if (j.pending && mutationId) {
+        const completed = await waitForMutation(mutationId);
+        if (mutating) dataMutationEpoch++;
+        return completed;
+      }
+      if (mutating) dataMutationEpoch++;
       return j;
     } catch (error) {
       if (error.name === "AbortError" && attempt + 1 < attempts) continue;
-      if (error.name === "AbortError" && mutationId) return await waitForMutation(mutationId);
+      if (error.name === "AbortError" && mutationId) {
+        const completed = await waitForMutation(mutationId);
+        if (mutating) dataMutationEpoch++;
+        return completed;
+      }
       if (error.name === "AbortError") throw new Error("A ligação demorou demasiado. Tenta novamente.");
       if (error.message && error.message !== "Failed to fetch") throw error;
       throw new Error("Não foi possível ligar ao GDR. Verifica a internet e tenta novamente.");
@@ -297,10 +306,15 @@ function logout() {
   render();
 }
 let refreshInFlight = null,
-  refreshTimer = null;
+  refreshTimer = null,
+  dataMutationEpoch = 0;
 async function loadData(epoch = sessionEpoch) {
+  const mutationEpochAtStart = dataMutationEpoch;
   const j = await api("getData");
-  if (epoch !== sessionEpoch) return false;
+  // Uma leitura iniciada antes de uma gravação não pode substituir o estado
+  // mais recente quando finalmente termina.
+  if (epoch !== sessionEpoch || mutationEpochAtStart !== dataMutationEpoch)
+    return false;
   if (hasLoadedRemoteData) notifyDataChanges(state, j.data);
   state = j.data;
   remoteRevision = String(j.data.revision || "");

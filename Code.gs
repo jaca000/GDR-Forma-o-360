@@ -1,5 +1,5 @@
-/** GDR Formação 360 — backend v17.9. */
-const VERSION = "17.9.0",
+/** GDR Formação 360 — backend v17.10. */
+const VERSION = "17.10.0",
   FEE_AMOUNT = 10,
   FEE_START_MONTH = "2026-10",
   FEE_DUE_DAY = 8,
@@ -580,23 +580,7 @@ function getData_(b, u) {
         s_(u.username).toLowerCase() === "josealmanso"
           ? objs_("USERS").map(pub_)
           : [],
-      monthlyFees: objs_("MONTHLY_FEES").map((r) => ({
-        id: s_(r.ID),
-        athleteId: s_(r.AtletaID),
-        season: s_(r.Epoca),
-        month: s_(r.Mes),
-        status: s_(r.Estado),
-        amount: num_(r.Valor),
-        method: s_(r.MetodoPagamento),
-        paymentDate: date_(r.DataPagamento),
-        note: s_(r.Observacao),
-        reference: s_(r.Referencia),
-        paymentNumber: s_(r.NumeroPagamento) || s_(r.Referencia),
-        proofDelivered: bool_(r.ComprovativoEntregue),
-        proofDeliveredAt: date_(r.DataEntregaComprovativo),
-        updatedBy: s_(r.AtualizadoPor),
-        updatedAt: iso_(r.AtualizadoEm),
-      })),
+      monthlyFees: monthlyFeesData_(),
       events: objs_("EVENTS").map((r) => ({
         id: s_(r.ID),
         type: s_(r.Tipo),
@@ -1402,12 +1386,13 @@ function saveMonthlyFee_(b, u) {
     throw Error("Seleciona Numerário ou MB Way.");
   if (f.status === "Pago" && !/^\d{4}-\d{2}-\d{2}$/.test(s_(f.paymentDate)))
     throw Error("Indica a data do pagamento.");
-  const old = objs_("MONTHLY_FEES").find(
+  // Se existirem repetições antigas, atualiza sempre o registo mais recente.
+  const old = objs_("MONTHLY_FEES").filter(
       (x) =>
         s_(x.AtletaID) === s_(f.athleteId) &&
         s_(x.Epoca) === s_(f.season) &&
         s_(x.Mes) === s_(f.month),
-    ),
+    ).pop(),
     id = old ? old.ID : s_(f.id) || "fee_" + Utilities.getUuid(),
     paymentNumber =
       old && (s_(old.NumeroPagamento) || s_(old.Referencia))
@@ -1438,6 +1423,41 @@ function saveMonthlyFee_(b, u) {
     AtualizadoEm: new Date(),
   });
   return { ok: true, id: id, paymentNumber: paymentNumber };
+}
+
+function monthlyFeesData_() {
+  const byMonth = {};
+  objs_("MONTHLY_FEES").forEach((r) => {
+    const key = [s_(r.AtletaID), s_(r.Epoca), s_(r.Mes)].join("|");
+    if (!s_(r.AtletaID) || !s_(r.Mes)) return;
+
+    // A v17.9 encontrou folhas antigas cuja ordem física diferia da definição
+    // do schema. Reconhece esses registos sem alterar nem apagar os dados.
+    const shifted = /^u_/i.test(s_(r.ComprovativoEntregue)) ||
+      (/^GDR-PAG-/i.test(s_(r.AtualizadoPor)) &&
+        (typeof r.AtualizadoEm === "boolean" || /^(true|false)$/i.test(s_(r.AtualizadoEm))));
+    const paymentNumber = shifted
+      ? s_(r.AtualizadoPor) || s_(r.Referencia)
+      : s_(r.NumeroPagamento) || s_(r.Referencia);
+    byMonth[key] = {
+      id: s_(r.ID),
+      athleteId: s_(r.AtletaID),
+      season: s_(r.Epoca),
+      month: s_(r.Mes),
+      status: s_(r.Estado),
+      amount: num_(r.Valor),
+      method: s_(r.MetodoPagamento),
+      paymentDate: date_(r.DataPagamento),
+      note: s_(r.Observacao),
+      reference: s_(r.Referencia),
+      paymentNumber: paymentNumber,
+      proofDelivered: shifted ? bool_(r.AtualizadoEm) : bool_(r.ComprovativoEntregue),
+      proofDeliveredAt: shifted ? date_(r.NumeroPagamento) : date_(r.DataEntregaComprovativo),
+      updatedBy: shifted ? s_(r.ComprovativoEntregue) : s_(r.AtualizadoPor),
+      updatedAt: shifted ? iso_(r.DataEntregaComprovativo) : iso_(r.AtualizadoEm),
+    };
+  });
+  return Object.keys(byMonth).map((key) => byMonth[key]);
 }
 function saveFeeSettings_(b, u) {
   admin_(u);
@@ -2026,14 +2046,14 @@ function spreadsheet_() {
 function sheetHeaders_(sh) {
   const name = sh.getName();
   if (REQUEST_HEADER_CACHE[name]) return REQUEST_HEADER_CACHE[name].slice();
-  const known = SHEETS[sh.getName()];
-  const headers =
-    known && known.length === sh.getLastColumn()
-      ? known.slice()
-      : sh
-          .getRange(1, 1, 1, sh.getLastColumn())
-          .getDisplayValues()[0]
-          .map(s_);
+  // A ordem das colunas pode diferir da ordem da definição SHEETS quando uma
+  // atualização acrescenta novos campos a uma folha já existente. A escrita
+  // tem sempre de respeitar os cabeçalhos reais para não deslocar valores para
+  // colunas erradas (por exemplo, nas mensalidades).
+  const headers = sh
+    .getRange(1, 1, 1, sh.getLastColumn())
+    .getDisplayValues()[0]
+    .map(s_);
   REQUEST_HEADER_CACHE[name] = headers;
   return headers.slice();
 }
