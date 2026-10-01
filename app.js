@@ -2751,12 +2751,33 @@ async function saveFee() {
       note: $("fn").value.trim(),
       amount: 10,
     };
-    await api("saveMonthlyFee", { fee });
-    await refresh();
+    const result = await api("saveMonthlyFee", { fee }),
+      saved = {
+        ...fee,
+        id: result.id || fee.id,
+        paymentNumber: result.paymentNumber || fee.paymentNumber || "",
+        reference: result.paymentNumber || fee.reference || "",
+        updatedBy: user?.id || "",
+        updatedAt: new Date().toISOString(),
+      },
+      existingIndex = state.monthlyFees.findIndex(
+        (item) =>
+          item.athleteId === saved.athleteId &&
+          item.month === saved.month &&
+          item.season === saved.season,
+      );
+    if (existingIndex >= 0) state.monthlyFees[existingIndex] = saved;
+    else state.monthlyFees.push(saved);
+    rememberData();
     view = "fees";
     feeDraft = null;
     render();
-    toast("Mensalidade guardada");
+    refresh();
+    toast(
+      saved.status === "Pago"
+        ? `Pagamento registado${saved.paymentNumber ? ` · ${saved.paymentNumber}` : ""}`
+        : "Mensalidade atualizada",
+    );
   } catch (e) {
     toast(e.message);
   }

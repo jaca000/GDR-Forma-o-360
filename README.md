@@ -1,4 +1,10 @@
-# GDR Formação 360 — v17.5
+# GDR Formação 360 — v17.6
+
+## Atualização imediata das mensalidades
+
+- Ao guardar uma mensalidade como **Pago**, **Isento**, **Pendente** ou **Em falta**, a lista e os totais são atualizados imediatamente após a confirmação do servidor.
+- O número de pagamento automático aparece logo no ecrã, sem esperar pela sincronização geral da aplicação.
+- A sincronização em segundo plano continua ativa para confirmar os dados, sem bloquear o utilizador nem reintroduzir a lentidão das gravações.
 
 ## Calendário limpo e exportável
 
@@ -177,7 +183,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v17.5 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v17.6 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -222,4 +228,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **17.5.0**.
+Versão: **17.6.0**.
