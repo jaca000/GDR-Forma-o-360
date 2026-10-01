@@ -1,4 +1,4 @@
-const CACHE = "gdr-formacao-360-v17-9";
+const CACHE = "gdr-formacao-360-v17-11";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,6 +32,8 @@ self.addEventListener("activate", (event) =>
 );
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Só guardar ficheiros da aplicação, nunca respostas do servidor Google.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {

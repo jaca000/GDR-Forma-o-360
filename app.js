@@ -159,7 +159,10 @@ async function api(action, payload = {}) {
     mutationId = mutating ? mutationIdFor(action, payload) : "";
   if (requestKey && pendingApiRequests.has(requestKey)) return pendingApiRequests.get(requestKey);
   const request = (async () => {
-    if (mutating) savingIndicator(true);
+    if (mutating) {
+      dataMutationEpoch++;
+      savingIndicator(true);
+    }
     const attempts = 1,
       waitLimit = action === "login" ? 30000 : 30000;
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -168,15 +171,21 @@ async function api(action, payload = {}) {
       if (j.pending && mutationId) {
         const completed = await waitForMutation(mutationId);
         if (mutating) dataMutationEpoch++;
+        if (completed.revision) remoteRevision = String(completed.revision);
+        mutationIds.delete(requestKey);
         return completed;
       }
       if (mutating) dataMutationEpoch++;
+      if (j.revision && mutating) remoteRevision = String(j.revision);
+      if (mutating) mutationIds.delete(requestKey);
       return j;
     } catch (error) {
       if (error.name === "AbortError" && attempt + 1 < attempts) continue;
       if (error.name === "AbortError" && mutationId) {
         const completed = await waitForMutation(mutationId);
         if (mutating) dataMutationEpoch++;
+        if (completed.revision) remoteRevision = String(completed.revision);
+        mutationIds.delete(requestKey);
         return completed;
       }
       if (error.name === "AbortError") throw new Error("A ligação demorou demasiado. Tenta novamente.");
@@ -313,7 +322,7 @@ async function loadData(epoch = sessionEpoch) {
   const j = await api("getData");
   // Uma leitura iniciada antes de uma gravação não pode substituir o estado
   // mais recente quando finalmente termina.
-  if (epoch !== sessionEpoch || mutationEpochAtStart !== dataMutationEpoch)
+  if (epoch !== sessionEpoch || mutationEpochAtStart !== dataMutationEpoch || activeSaves)
     return false;
   if (hasLoadedRemoteData) notifyDataChanges(state, j.data);
   state = j.data;
@@ -2799,6 +2808,7 @@ async function saveFee() {
         reference: result.paymentNumber || fee.reference || "",
         updatedBy: user?.id || "",
         updatedAt: new Date().toISOString(),
+        ...(result.fee || {}),
       },
       existingIndex = state.monthlyFees.findIndex(
         (item) =>

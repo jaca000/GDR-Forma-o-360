@@ -1,5 +1,5 @@
 /** GDR Formação 360 — backend v17.10. */
-const VERSION = "17.10.0",
+const VERSION = "17.11.0",
   FEE_AMOUNT = 10,
   FEE_START_MONTH = "2026-10",
   FEE_DUE_DAY = 8,
@@ -282,8 +282,10 @@ function doPost(e) {
       }
     }
     const result = h[a](b, u);
-    if (["getData", "syncStatus", "logSafetyAccess", "markNotificationsRead", "sendWeeklySummary"].indexOf(a) < 0)
+    if (["getData", "syncStatus", "logSafetyAccess", "markNotificationsRead", "sendWeeklySummary"].indexOf(a) < 0) {
       touchData_();
+      result.revision = dataVersion_();
+    }
     if (mutationCacheKey)
       CacheService.getScriptCache().put(mutationCacheKey, JSON.stringify(result), 21600);
     return json_(result);
@@ -419,15 +421,16 @@ function cacheSession_(token, user) {
   );
 }
 function userAccessVersion_() {
+  if (REQUEST_ACCESS_VERSION) return REQUEST_ACCESS_VERSION;
   const cache = CacheService.getScriptCache(),
     cached = cache.get("USER_ACCESS_VERSION_FAST");
-  if (cached) return cached;
+  if (cached) return (REQUEST_ACCESS_VERSION = cached);
   const stored =
     PropertiesService.getDocumentProperties().getProperty(
       "USER_ACCESS_VERSION",
     ) || "1";
   cache.put("USER_ACCESS_VERSION_FAST", stored, 21600);
-  return stored;
+  return (REQUEST_ACCESS_VERSION = stored);
 }
 function touchUserAccess_() {
   const version = new Date().getTime() + "_" + Utilities.getUuid();
@@ -442,19 +445,21 @@ function touchUserAccess_() {
   );
 }
 function dataVersion_() {
+  if (REQUEST_DATA_VERSION) return REQUEST_DATA_VERSION;
   const cache = CacheService.getScriptCache(), fast = cache.get("DATA_VERSION_FAST");
-  if (fast) return fast;
+  if (fast) return (REQUEST_DATA_VERSION = fast);
   const stored = PropertiesService.getDocumentProperties().getProperty("DATA_VERSION") || "1";
   cache.put("DATA_VERSION_FAST", stored, 21600);
-  return stored;
+  return (REQUEST_DATA_VERSION = stored);
 }
 function touchData_() {
   // A versão dos dados não necessita de uma escrita persistente e lenta em
   // PropertiesService em cada alteração. O ScriptCache é partilhado por todos
   // os utilizadores e faz a invalidação imediatamente.
+  REQUEST_DATA_VERSION = new Date().getTime() + "_" + Utilities.getUuid();
   CacheService.getScriptCache().put(
     "DATA_VERSION_FAST",
-    new Date().getTime() + "_" + Utilities.getUuid(),
+    REQUEST_DATA_VERSION,
     21600,
   );
 }
@@ -499,7 +504,14 @@ function getDataCached_(b, u) {
       "yyyyMMdd",
     ),
     key =
-      "data_" + hash_(identity).slice(0, 20) + "_" + dataVersion_() + "_" + day,
+      "data_" +
+      VERSION.replace(/[^0-9A-Za-z]/g, "_") +
+      "_" +
+      hash_(identity).slice(0, 20) +
+      "_" +
+      dataVersion_() +
+      "_" +
+      day,
     cached = cacheJsonGet_(key);
   if (cached) return cached;
   const result = getData_(b, u);
@@ -1391,7 +1403,7 @@ function saveMonthlyFee_(b, u) {
       (x) =>
         s_(x.AtletaID) === s_(f.athleteId) &&
         s_(x.Epoca) === s_(f.season) &&
-        s_(x.Mes) === s_(f.month),
+        month_(x.Mes) === s_(f.month),
     ).pop(),
     id = old ? old.ID : s_(f.id) || "fee_" + Utilities.getUuid(),
     paymentNumber =
@@ -1422,14 +1434,16 @@ function saveMonthlyFee_(b, u) {
     AtualizadoPor: u.id,
     AtualizadoEm: new Date(),
   });
-  return { ok: true, id: id, paymentNumber: paymentNumber };
+  const fee = monthlyFeesData_().find((x) => x.id === s_(id));
+  return { ok: true, id: id, paymentNumber: paymentNumber, fee: fee };
 }
 
 function monthlyFeesData_() {
   const byMonth = {};
   objs_("MONTHLY_FEES").forEach((r) => {
-    const key = [s_(r.AtletaID), s_(r.Epoca), s_(r.Mes)].join("|");
-    if (!s_(r.AtletaID) || !s_(r.Mes)) return;
+    const month = month_(r.Mes),
+      key = [s_(r.AtletaID), s_(r.Epoca), month].join("|");
+    if (!s_(r.AtletaID) || !month) return;
 
     // A v17.9 encontrou folhas antigas cuja ordem física diferia da definição
     // do schema. Reconhece esses registos sem alterar nem apagar os dados.
@@ -1443,7 +1457,7 @@ function monthlyFeesData_() {
       id: s_(r.ID),
       athleteId: s_(r.AtletaID),
       season: s_(r.Epoca),
-      month: s_(r.Mes),
+      month: month,
       status: s_(r.Estado),
       amount: num_(r.Valor),
       method: s_(r.MetodoPagamento),
@@ -1882,7 +1896,7 @@ function sendFeeAlertForMonth_(month, phase) {
       objs_("MONTHLY_FEES")
         .filter(
           (f) =>
-            s_(f.Mes) === month &&
+            month_(f.Mes) === month &&
             ["Pago", "Isento"].indexOf(s_(f.Estado)) >= 0,
         )
         .map((f) => s_(f.AtletaID)),
@@ -2029,14 +2043,21 @@ function ensureSheet_(ss, n, h) {
 }
 let REQUEST_OBJECT_CACHE = {},
   REQUEST_HEADER_CACHE = {},
+  REQUEST_VALUES_CACHE = {},
+  REQUEST_ACCESS_VERSION = "",
+  REQUEST_DATA_VERSION = "",
   REQUEST_SPREADSHEET_CACHE = null;
 function resetRequestCache_() {
   REQUEST_OBJECT_CACHE = {};
   REQUEST_HEADER_CACHE = {};
+  REQUEST_VALUES_CACHE = {};
+  REQUEST_ACCESS_VERSION = "";
+  REQUEST_DATA_VERSION = "";
   REQUEST_SPREADSHEET_CACHE = null;
 }
 function invalidateRequestCache_(n) {
   delete REQUEST_OBJECT_CACHE[n];
+  delete REQUEST_VALUES_CACHE[n];
 }
 function spreadsheet_() {
   if (!REQUEST_SPREADSHEET_CACHE)
@@ -2061,8 +2082,8 @@ function objs_(n) {
   if (REQUEST_OBJECT_CACHE[n])
     return REQUEST_OBJECT_CACHE[n].map((x) => Object.assign({}, x));
   const sh = spreadsheet_().getSheetByName(n);
-  if (!sh || sh.getLastRow() < 2) return [];
-  const v = sh.getDataRange().getValues(),
+  if (!sh) return [];
+  const values = sheetValues_(n, sh), v = values.slice(),
     h = v.shift().map(s_);
   const rows = v
     .filter((r) => r.some((x) => s_(x) !== ""))
@@ -2074,6 +2095,14 @@ function objs_(n) {
   REQUEST_OBJECT_CACHE[n] = rows;
   return rows.map((x) => Object.assign({}, x));
 }
+function sheetValues_(n, sh) {
+  if (!REQUEST_VALUES_CACHE[n]) {
+    const values = sh.getDataRange().getValues();
+    REQUEST_VALUES_CACHE[n] = values;
+    REQUEST_HEADER_CACHE[n] = values[0].map(s_);
+  }
+  return REQUEST_VALUES_CACHE[n];
+}
 function append_(n, o) {
   const sh = spreadsheet_().getSheetByName(n),
     h = sheetHeaders_(sh);
@@ -2084,17 +2113,12 @@ function append_(n, o) {
 }
 function upsert_(n, k, o) {
   const sh = spreadsheet_().getSheetByName(n),
-    h = sheetHeaders_(sh),
+    values = sheetValues_(n, sh),
+    h = values[0].map(s_),
     ki = h.indexOf(k),
-    lastRow = sh.getLastRow(),
-    keys = lastRow > 1
-      ? sh.getRange(2, ki + 1, lastRow - 1, 1).getDisplayValues()
-      : [],
-    keyPosition = keys.findIndex((row) => s_(row[0]) === s_(o[k])),
-    rowNumber = keyPosition >= 0 ? keyPosition + 2 : lastRow + 1,
-    current = keyPosition >= 0
-      ? sh.getRange(rowNumber, 1, 1, h.length).getValues()[0]
-      : [],
+    keyPosition = values.findIndex((row, i) => i > 0 && s_(row[ki]) === s_(o[k])),
+    rowNumber = keyPosition >= 0 ? keyPosition + 1 : values.length + 1,
+    current = keyPosition >= 0 ? values[keyPosition] : [],
     vals = h.map((x, i) =>
       o[x] === undefined ? current[i] || "" : o[x],
     );
@@ -2104,7 +2128,7 @@ function upsert_(n, k, o) {
 function upsertMany_(n, k, rows) {
   if (!rows || !rows.length) return;
   const sh = spreadsheet_().getSheetByName(n),
-    values = sh.getDataRange().getValues(),
+    values = sheetValues_(n, sh),
     headers = values[0].map(s_),
     keyIndex = headers.indexOf(k),
     rowByKey = {};
@@ -2328,6 +2352,13 @@ function date_(v) {
   return Object.prototype.toString.call(v) === "[object Date]"
     ? Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd")
     : s_(v).slice(0, 10);
+}
+function month_(v) {
+  if (!v) return "";
+  if (Object.prototype.toString.call(v) === "[object Date]")
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM");
+  const match = s_(v).match(/^(\d{4})[-/](\d{1,2})(?:[-/].*)?$/);
+  return match ? match[1] + "-" + ("0" + match[2]).slice(-2) : "";
 }
 function time_(v) {
   if (!v) return "";
