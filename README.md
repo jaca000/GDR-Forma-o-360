@@ -1,4 +1,14 @@
-# GDR Formação 360 — v17.6
+# GDR Formação 360 — v17.7
+
+## Motor de desempenho
+
+- A aplicação mantém uma cópia local independente para cada utilizador, permitindo mostrar o respetivo painel logo após o login enquanto confirma os dados mais recentes em segundo plano.
+- Trocar de utilizador deixa de apagar essa cópia; os dados continuam separados por conta e nunca são apresentados antes da autenticação correta.
+- Foi removida a repetição automática do login que podia duplicar o tempo de espera quando a primeira resposta ultrapassava o limite anterior.
+- As gravações reutilizam, dentro de cada pedido, a ligação à Sheet, os cabeçalhos e as validações de sessão, reduzindo chamadas repetidas ao Google.
+- Depois de uma gravação, a confirmação geral dos dados começa em segundo plano quase imediatamente, em vez de aguardar 12 segundos.
+- A versão de acesso dos utilizadores é mantida em cache e continua a ser invalidada imediatamente quando uma conta é criada, alterada ou eliminada.
+- Mantém-se a proteção contra cliques repetidos e gravações duplicadas.
 
 ## Atualização imediata das mensalidades
 
@@ -183,7 +193,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v17.6 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v17.7 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -228,4 +238,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **17.6.0**.
+Versão: **17.7.0**.

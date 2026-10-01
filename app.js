@@ -160,8 +160,8 @@ async function api(action, payload = {}) {
   if (requestKey && pendingApiRequests.has(requestKey)) return pendingApiRequests.get(requestKey);
   const request = (async () => {
     if (mutating) savingIndicator(true);
-    const attempts = action === "login" ? 2 : 1,
-      waitLimit = action === "login" ? 12000 : 25000;
+    const attempts = 1,
+      waitLimit = action === "login" ? 30000 : 30000;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const j = await rawApi(action, mutating ? { ...payload, mutationId } : payload, waitLimit);
@@ -253,22 +253,30 @@ async function login() {
     localStorage.setItem("gdr360_token", token);
     localStorage.setItem("gdr360_user", JSON.stringify(user));
     view = user.role === "parent" ? "parentHome" : "home";
-    restoreCachedData();
-    dataLoading = true;
-    render();
-    loadData(sessionEpoch)
-      .then(() => render())
-      .catch((e) => toast(e.message))
-      .finally(() => {
-        dataLoading = false;
-        render();
-      });
+    if (j.data) {
+      state = j.data;
+      remoteRevision = String(j.data.revision || "");
+      hasLoadedRemoteData = true;
+      dataLoading = false;
+      rememberData();
+      render();
+    } else {
+      restoreCachedData();
+      dataLoading = true;
+      render();
+      loadData(sessionEpoch)
+        .then(() => render())
+        .catch((e) => toast(e.message))
+        .finally(() => {
+          dataLoading = false;
+          render();
+        });
+    }
   } catch (e) {
     $("app").innerHTML = loginScreen(e.message);
   }
 }
 function logout() {
-  const oldDataKey = dataCacheKey();
   sessionEpoch++;
   token = "";
   user = null;
@@ -286,7 +294,6 @@ function logout() {
   clearTimeout(refreshTimer);
   localStorage.removeItem("gdr360_token");
   localStorage.removeItem("gdr360_user");
-  if (oldDataKey) localStorage.removeItem(oldDataKey);
   render();
 }
 let refreshInFlight = null,
@@ -320,7 +327,7 @@ function refresh() {
       .then(() => render())
       .catch((e) => toast(e.message))
       .finally(() => (refreshInFlight = null));
-  }, 12000);
+  }, 1200);
   return Promise.resolve();
 }
 
