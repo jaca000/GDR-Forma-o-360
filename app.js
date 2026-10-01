@@ -327,7 +327,7 @@ function refresh() {
       .then(() => render())
       .catch((e) => toast(e.message))
       .finally(() => (refreshInFlight = null));
-  }, 1200);
+  }, 60000);
   return Promise.resolve();
 }
 
@@ -861,7 +861,6 @@ async function saveAnnouncement() {
       rememberData();
     }
     announcementDraftId = null;
-    refresh();
     view = "announcements";
     render();
     toast("Aviso publicado");
@@ -1347,7 +1346,7 @@ function parentFeesSection(child, today) {
       ? `<div class="parent-fee-history">${rows
           .map(
             (fee) =>
-              `<div><span>${new Date(fee.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</span><b>${esc(fee.status)}</b>${fee.status === "Pago" ? `<small>${fmt(fee.paymentDate)} · ${esc(fee.method)}</small>` : ""}</div>`,
+              `<div><span>${new Date(fee.month + "-01T12:00:00").toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</span><b>${esc(fee.status)}</b>${fee.status === "Pago" ? `<small>${fmt(fee.paymentDate)} · ${esc(fee.method)}${fee.proofDelivered ? " · Comprovativo entregue" : ""}</small>` : ""}</div>`,
           )
           .join("")}</div>`
       : `<p class="muted">${currentMonth < start ? "O histórico ficará disponível aqui a partir da primeira mensalidade." : "Ainda não existem mensalidades registadas."}</p>`
@@ -1641,15 +1640,20 @@ function absences() {
 }
 async function savePlannedAbsence() {
   try {
-    await api("savePlannedAbsence", {
-      absence: {
+    const absence = {
         athleteId: $("paa").value,
         date: $("pad").value,
         reason: $("par").value,
         note: $("pan").value.trim(),
       },
+      result = await api("savePlannedAbsence", { absence });
+    state.plannedAbsences.push({
+      ...absence,
+      id: result.id,
+      active: true,
+      createdBy: user?.id || "",
     });
-    await refresh();
+    rememberData();
     render();
     toast("Falta antecipada registada");
   } catch (e) {
@@ -1660,7 +1664,9 @@ async function deletePlannedAbsence(id) {
   if (!confirm("Cancelar esta falta antecipada?")) return;
   try {
     await api("deletePlannedAbsence", { id });
-    await refresh();
+    const item = state.plannedAbsences.find((absence) => absence.id === id);
+    if (item) item.active = false;
+    rememberData();
     render();
     toast("Falta antecipada cancelada");
   } catch (e) {
@@ -2360,7 +2366,12 @@ async function deleteTraining(id) {
     return;
   try {
     await api("deleteTraining", { id });
-    await refresh();
+    state.trainings = state.trainings.filter((training) => training.id !== id);
+    state.records = state.records.filter((record) => record.trainingId !== id);
+    state.trainingSummaries = (state.trainingSummaries || []).filter(
+      (summary) => summary.trainingId !== id,
+    );
+    rememberData();
     selectedTrainingId = null;
     view = "calendar";
     render();
@@ -2703,13 +2714,14 @@ function fees() {
     .map((a) => ({ a, f: feeFor(a.id, month, season) }))
     .filter((x) => filter === "Todos" || feeStatus(x.f, month) === filter);
   const paid = rows.filter((x) => x.f?.status === "Pago"),
+    proofsPending = paid.filter((x) => !x.f?.proofDelivered),
     missing = rows.filter((x) => feeStatus(x.f, month) === "Em falta"),
     exempt = rows.filter((x) => x.f?.status === "Isento");
-  return `<div class="section"><div><h3>Mensalidades</h3><div class="muted">10€ / mês · desde outubro de 2026 · pagamento entre os dias 1 e 8</div></div>${!admin() ? '<span class="pill">Só leitura</span>' : ""}</div>${admin() ? `<div class="card alert-settings"><div class="field"><label>Email para alertas de pagamentos em falta</label><div class="inline-field"><input id="feeAlertEmail" type="email" value="${esc(state.settings?.alertEmail || "")}" placeholder="nome@exemplo.pt"><button class="btn btn-primary" onclick="saveFeeSettings()">Guardar</button></div><div class="muted">Aviso no dia 6, no dia 9 e semanalmente enquanto existirem pagamentos em falta.</div></div></div>` : ""}<div class="card fee-filters"><div class="form2"><div class="field"><label>Época</label><input id="feeSeason" value="${season}" onchange="render()" pattern="\\d{4}/\\d{2}"></div><div class="field"><label>Mês</label><input id="feeMonth" type="month" min="${startMonth}" value="${month}" onchange="render()"></div></div><div class="field"><label>Estado</label><select id="feeFilter" onchange="render()">${["Todos", "Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === filter ? "selected" : ""}>${x}</option>`).join("")}</select></div></div><div class="grid fee-kpis"><div class="card kpi"><span>Atletas</span><strong>${rows.length}</strong></div><div class="card kpi"><span>Pagos</span><strong>${paid.length}</strong></div><div class="card kpi"><span>Recebido</span><strong>${paid.length * 10}€</strong></div><div class="card kpi"><span>Por receber</span><strong>${missing.length * 10}€</strong></div></div><div class="list fees-list">${
+  return `<div class="section"><div><h3>Mensalidades</h3><div class="muted">10€ / mês · desde outubro de 2026 · pagamento entre os dias 1 e 8</div></div>${!admin() ? '<span class="pill">Só leitura</span>' : ""}</div>${admin() ? `<div class="card alert-settings"><div class="field"><label>Email para alertas de pagamentos em falta</label><div class="inline-field"><input id="feeAlertEmail" type="email" value="${esc(state.settings?.alertEmail || "")}" placeholder="nome@exemplo.pt"><button class="btn btn-primary" onclick="saveFeeSettings()">Guardar</button></div><div class="muted">Aviso no dia 6, no dia 9 e semanalmente enquanto existirem pagamentos em falta.</div></div></div>` : ""}<div class="card fee-filters"><div class="form2"><div class="field"><label>Época</label><input id="feeSeason" value="${season}" onchange="render()" pattern="\\d{4}/\\d{2}"></div><div class="field"><label>Mês</label><input id="feeMonth" type="month" min="${startMonth}" value="${month}" onchange="render()"></div></div><div class="field"><label>Estado</label><select id="feeFilter" onchange="render()">${["Todos", "Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === filter ? "selected" : ""}>${x}</option>`).join("")}</select></div></div><div class="grid fee-kpis"><div class="card kpi"><span>Atletas</span><strong>${rows.length}</strong></div><div class="card kpi"><span>Pagos</span><strong>${paid.length}</strong></div><div class="card kpi"><span>Comprovativos por entregar</span><strong>${proofsPending.length}</strong></div><div class="card kpi"><span>Por receber</span><strong>${missing.length * 10}€</strong></div></div><div class="list fees-list">${
     rows
       .map(({ a, f }) => {
         const status = feeStatus(f, month);
-        return `<div class="card fee-row">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="fee-status s-${status.replace(" ", "-").toLowerCase()}">${esc(status)}</span></div><div class="muted">${f?.status === "Pago" ? `10€ · ${esc(f.method)} · ${fmt(f.paymentDate)} · ${esc(f.paymentNumber || "")}` : f?.status === "Isento" ? "Isento neste mês" : status === "Em falta" ? "Prazo terminado no dia 8 · 10€ por regularizar" : "Prazo de pagamento: dias 1 a 8"}</div></div>${f?.status === "Pago" ? `<button class="btn btn-small btn-secondary" onclick="printPaymentProof('${f.id}')">Comprovativo</button>` : ""}${admin() ? `<button class="btn btn-small btn-primary" onclick="openFee('${a.id}','${month}','${season}')">Gerir</button>` : ""}</div>`;
+        return `<div class="card fee-row">${avatar(a)}<div class="grow"><strong>${esc(a.name)}</strong><div class="athlete-meta">${groupBadge(a.group)}<span class="fee-status s-${status.replace(" ", "-").toLowerCase()}">${esc(status)}</span>${f?.status === "Pago" ? `<span class="pill">${f.proofDelivered ? `Comprovativo entregue${f.proofDeliveredAt ? ` · ${fmt(f.proofDeliveredAt)}` : ""}` : "Comprovativo por entregar"}</span>` : ""}</div><div class="muted">${f?.status === "Pago" ? `10€ · ${esc(f.method)} · ${fmt(f.paymentDate)} · ${esc(f.paymentNumber || "")}` : f?.status === "Isento" ? "Isento neste mês" : status === "Em falta" ? "Prazo terminado no dia 8 · 10€ por regularizar" : "Prazo de pagamento: dias 1 a 8"}</div></div>${f?.status === "Pago" ? `<button class="btn btn-small btn-secondary" onclick="printPaymentProof('${f.id}')">Comprovativo</button>${admin() ? `<button class="btn btn-small ${f.proofDelivered ? "btn-ghost" : "btn-primary"}" onclick="toggleFeeProofDelivered('${f.id}',${!f.proofDelivered})">${f.proofDelivered ? "Anular entrega" : "Marcar entregue"}</button>` : ""}` : ""}${admin() ? `<button class="btn btn-small btn-primary" onclick="openFee('${a.id}','${month}','${season}')">Gerir</button>` : ""}</div>`;
       })
       .join("") ||
     '<div class="card empty">Sem resultados para este filtro.</div>'
@@ -2720,7 +2732,8 @@ async function saveFeeSettings() {
     await api("saveFeeSettings", {
       alertEmail: $("feeAlertEmail").value.trim(),
     });
-    await refresh();
+    state.settings.alertEmail = $("feeAlertEmail").value.trim();
+    rememberData();
     render();
     toast("Email de alertas guardado");
   } catch (e) {
@@ -2739,6 +2752,8 @@ function openFee(aid, month, season) {
     paymentDate: new Date().toISOString().slice(0, 10),
     note: "",
     paymentNumber: "",
+    proofDelivered: false,
+    proofDeliveredAt: "",
   };
   view = "feeForm";
   render();
@@ -2746,7 +2761,7 @@ function openFee(aid, month, season) {
 function feeForm() {
   const f = feeDraft,
     a = state.athletes.find((x) => x.id === f.athleteId);
-  return `<div class="section"><h3>Gerir mensalidade</h3></div><div class="card"><div class="athlete">${avatar(a)}<div><strong>${esc(a.name)}</strong><div class="muted">${esc(f.month)} · ${esc(f.season)} · 10€ · prazo dias 1 a 8</div></div></div><div class="field"><label>Estado</label><select id="fs">${["Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === f.status ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="form2"><div class="field"><label>Método de pagamento</label><select id="fm"><option ${f.method === "Numerário" ? "selected" : ""}>Numerário</option><option ${f.method === "MB Way" ? "selected" : ""}>MB Way</option></select></div><div class="field"><label>Data de pagamento</label><input id="fd" type="date" value="${esc(f.paymentDate || "")}"></div></div>${f.paymentNumber ? `<div class="admin-note"><b>Número de pagamento:</b> ${esc(f.paymentNumber)}</div>` : '<div class="admin-note">O número de pagamento é criado automaticamente quando guardares como Pago.</div>'}<div class="field"><label>Observação</label><textarea id="fn">${esc(f.note || "")}</textarea></div><button class="btn btn-primary btn-block" onclick="saveFee()">Guardar mensalidade</button></div>`;
+  return `<div class="section"><h3>Gerir mensalidade</h3></div><div class="card"><div class="athlete">${avatar(a)}<div><strong>${esc(a.name)}</strong><div class="muted">${esc(f.month)} · ${esc(f.season)} · 10€ · prazo dias 1 a 8</div></div></div><div class="field"><label>Estado</label><select id="fs">${["Pago", "Em falta", "Isento", "Pendente"].map((x) => `<option ${x === f.status ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="form2"><div class="field"><label>Método de pagamento</label><select id="fm"><option ${f.method === "Numerário" ? "selected" : ""}>Numerário</option><option ${f.method === "MB Way" ? "selected" : ""}>MB Way</option></select></div><div class="field"><label>Data de pagamento</label><input id="fd" type="date" value="${esc(f.paymentDate || "")}"></div></div>${f.paymentNumber ? `<div class="admin-note"><b>Número de pagamento:</b> ${esc(f.paymentNumber)}</div>` : '<div class="admin-note">O número de pagamento é criado automaticamente quando guardares como Pago.</div>'}${f.status === "Pago" ? `<label class="check"><input id="fproof" type="checkbox" ${f.proofDelivered ? "checked" : ""}> Comprovativo já entregue</label>` : ""}<div class="field"><label>Observação</label><textarea id="fn">${esc(f.note || "")}</textarea></div><button class="btn btn-primary btn-block" onclick="saveFee()">Guardar mensalidade</button></div>`;
 }
 async function saveFee() {
   try {
@@ -2756,6 +2771,10 @@ async function saveFee() {
       method: $("fm").value,
       paymentDate: $("fd").value,
       note: $("fn").value.trim(),
+      proofDelivered: !!$("fproof")?.checked,
+      proofDeliveredAt: $("fproof")?.checked
+        ? feeDraft.proofDeliveredAt || new Date().toISOString().slice(0, 10)
+        : "",
       amount: 10,
     };
     const result = await api("saveMonthlyFee", { fee }),
@@ -2779,12 +2798,30 @@ async function saveFee() {
     view = "fees";
     feeDraft = null;
     render();
-    refresh();
     toast(
       saved.status === "Pago"
         ? `Pagamento registado${saved.paymentNumber ? ` · ${saved.paymentNumber}` : ""}`
         : "Mensalidade atualizada",
     );
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function toggleFeeProofDelivered(id, delivered) {
+  if (!admin()) return;
+  const fee = state.monthlyFees.find((x) => x.id === id);
+  if (!fee || fee.status !== "Pago") return;
+  try {
+    const updated = {
+      ...fee,
+      proofDelivered: !!delivered,
+      proofDeliveredAt: delivered ? new Date().toISOString().slice(0, 10) : "",
+    };
+    await api("saveMonthlyFee", { fee: updated });
+    Object.assign(fee, updated, { updatedAt: new Date().toISOString() });
+    rememberData();
+    render();
+    toast(delivered ? "Comprovativo marcado como entregue" : "Entrega do comprovativo anulada");
   } catch (e) {
     toast(e.message);
   }
@@ -3036,7 +3073,6 @@ async function saveEvent() {
     state.gameAvailability.filter((x) => x.eventId === payload.id).forEach((x) => x.eventDate = payload.date);
     const returnView = previous?.returnView || "calendar";
     eventDraft = null;
-    refresh();
     view = returnView;
     render();
     toast(previous ? "Evento atualizado" : "Evento guardado");
@@ -3048,7 +3084,8 @@ async function deleteEvent(id) {
   if (!confirm("Eliminar este evento?")) return;
   try {
     await api("deleteEvent", { id });
-    await refresh();
+    state.events = state.events.filter((event) => event.id !== id);
+    rememberData();
     render();
   } catch (e) {
     toast(e.message);
@@ -3274,8 +3311,7 @@ async function saveCallup() {
     if (!selected.length) return toast("Seleciona pelo menos um jogador");
     if (selected.some((a) => a.availability === "Indisponível"))
       return toast("Retira da convocatória os atletas indisponíveis.");
-    await api("saveCallup", {
-      game: {
+    const game = {
         id: callupDraft.id,
         opponent: callupDraft.opponent,
         date: callupDraft.date,
@@ -3284,14 +3320,20 @@ async function saveCallup() {
         equipment: callupDraft.equipment,
         callupLimit: callupDraft.limit,
       },
-      callups: selected.map((a) => ({
+      callups = selected.map((a) => ({
         id: uid("c"),
         athleteId: a.id,
         status: "Convocado",
         score: score(a),
-      })),
-    });
-    await refresh();
+      }));
+    await api("saveCallup", { game, callups });
+    const gameIndex = state.games.findIndex((item) => item.id === game.id);
+    if (gameIndex >= 0) state.games[gameIndex] = game;
+    else state.games.push(game);
+    state.callups = state.callups
+      .filter((item) => item.gameId !== game.id)
+      .concat(callups.map((item) => ({ ...item, gameId: game.id })));
+    rememberData();
     toast("Convocatória guardada");
     view = callupDraft.returnView || "availabilityHub";
     callupDraft = null;
@@ -3487,12 +3529,24 @@ async function openAvailabilityRequest() {
     const event = availabilityDraft.event,
       group = availabilityDraft.group,
       deadline = $("availabilityDeadline").value;
-    await api("saveAvailabilityRequest", {
+    const result = await api("saveAvailabilityRequest", {
       eventId: event.id,
       group,
       deadline,
     });
-    await refresh();
+    const request = {
+        id: result.id,
+        eventId: event.id,
+        group,
+        deadline,
+        status: "Aberto",
+      },
+      index = state.availabilityRequests.findIndex(
+        (item) => item.id === request.id,
+      );
+    if (index >= 0) state.availabilityRequests[index] = request;
+    else state.availabilityRequests.push(request);
+    rememberData();
     const link = `${location.origin}${location.pathname}?portal=pais`,
       message = `⚽ GDR Formação 360\n\nEstá aberta a confirmação de disponibilidade para ${event.title}, no dia ${fmt(event.date)}${event.time ? ` às ${event.time}` : ""}, escalão ${group}.\n\nPor favor, respondam até ${fmt(deadline)} através do Portal dos Pais:\n${link}`;
     availabilityShareMessage = message;
@@ -3520,7 +3574,6 @@ async function deleteAvailabilityRequest(id) {
     state.gameAvailability = (state.gameAvailability || []).filter(
       (r) => !(r.eventId === eventId && r.group === group),
     );
-    await refresh();
     availabilityShareMessage = "";
     openAvailability(eventId, group);
     toast("Pedido de disponibilidade apagado");
@@ -3594,7 +3647,7 @@ async function saveAvailability(prepare = false) {
           updatedAt: new Date().toISOString(),
         })),
       );
-    await refresh();
+    rememberData();
     toast("Disponibilidade guardada");
     if (prepare) prepareCallupForEvent(event.id, group);
     else {
@@ -3681,17 +3734,27 @@ function enableLineupDrag() {
 }
 async function saveLineup() {
   try {
+    const lineup = lineupDraft.players.map((p) => ({
+      athleteId: p.athleteId,
+      x: p.x,
+      y: p.y,
+      equipment: p.equipment,
+      number: p.number,
+    }));
     await api("saveLineup", {
       gameId: lineupDraft.game.id,
-      lineup: lineupDraft.players.map((p) => ({
-        athleteId: p.athleteId,
-        x: p.x,
-        y: p.y,
-        equipment: p.equipment,
-        number: p.number,
-      })),
+      lineup,
     });
-    await refresh();
+    state.lineups = state.lineups
+      .filter((item) => item.gameId !== lineupDraft.game.id)
+      .concat(
+        lineup.map((item, index) => ({
+          ...item,
+          id: `local_${lineupDraft.game.id}_${index}`,
+          gameId: lineupDraft.game.id,
+        })),
+      );
+    rememberData();
     toast("Sete inicial guardado");
   } catch (e) {
     toast(e.message);
@@ -3752,8 +3815,7 @@ function userForm(id = "") {
 }
 async function saveUser(id) {
   try {
-    await api("saveUser", {
-      target: {
+    const target = {
         id,
         name: $("un").value.trim(),
         username: $("uu").value.trim(),
@@ -3764,8 +3826,14 @@ async function saveUser(id) {
           ...document.querySelectorAll('input[name="parentAthlete"]:checked'),
         ].map((x) => x.value),
       },
-    });
-    await refresh();
+      result = await api("saveUser", { target }),
+      saved = { ...target, id: result.id, active: true },
+      index = state.users.findIndex((item) => item.id === result.id);
+    delete saved.pin;
+    if (index >= 0)
+      state.users[index] = { ...state.users[index], ...saved };
+    else state.users.push(saved);
+    rememberData();
     view = "users";
     render();
     toast("Utilizador guardado");
@@ -3776,7 +3844,9 @@ async function saveUser(id) {
 async function toggleUser(id, active) {
   try {
     await api("toggleUser", { id, active });
-    await refresh();
+    const target = state.users.find((item) => item.id === id);
+    if (target) target.active = active;
+    rememberData();
     render();
   } catch (e) {
     toast(e.message);

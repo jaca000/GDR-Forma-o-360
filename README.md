@@ -1,4 +1,17 @@
-# GDR Formação 360 — v17.7
+# GDR Formação 360 — v17.9
+
+## Controlo de entrega dos comprovativos
+
+- Cada mensalidade paga distingue agora o pagamento recebido do comprovativo entregue.
+- O Administrador pode marcar ou anular a entrega diretamente na lista de mensalidades.
+- A data de entrega fica guardada no histórico mensal e existe um total de comprovativos ainda por entregar.
+
+## Gravações sem recarregar toda a aplicação
+
+- Confirmado diretamente no histórico de execuções do Apps Script: as gravações demoravam normalmente cerca de 1 segundo, mas eram seguidas por uma recarga integral de 6 a 16 segundos.
+- Mensalidades, treinos, faltas antecipadas, eventos, disponibilidades, convocatórias, sete inicial, avisos e utilizadores passam a atualizar diretamente apenas os dados alterados.
+- A aplicação deixa de descarregar e recalcular toda a base após cada gravação, evitando bloqueios e pedidos concorrentes.
+- A sincronização integral fica reservada para alterações externas ou de outro utilizador e é agrupada em segundo plano.
 
 ## Motor de desempenho
 
@@ -193,7 +206,7 @@ Aplicação móvel/PWA para a formação do GDR Faro do Alentejo. O pacote é **
 
 1. Faça uma cópia de segurança da Sheet: **Ficheiro → Fazer uma cópia**.
 2. Abra **Extensões → Apps Script** na Sheet atual.
-3. Substitua `Code.gs` pelo ficheiro desta v17.7 e guarde.
+3. Substitua `Code.gs` pelo ficheiro desta v17.9 e guarde.
 4. Execute `setup()` **uma vez** e autorize as permissões.
 5. Vá a **Implementar → Gerir implementações → Editar → Nova versão → Implementar**.
 6. Mantenha o mesmo endereço `/exec`; o `config.js` conserva o endereço atual.
@@ -238,4 +251,4 @@ Numa Sheet nova, `setup()` cria `admin / 1234`; altere esse PIN imediatamente. N
 15. No Portal dos Pais, abra **Segurança do atleta**, preencha o contacto principal, aceite o consentimento e confirme que a equipa técnica consegue consultar mas não alterar.
 16. Execute `setup()` e confirme a criação das folhas `ATHLETE_SAFETY` e `SAFETY_ACCESS_LOG`.
 
-Versão: **17.7.0**.
+Versão: **17.9.0**.
